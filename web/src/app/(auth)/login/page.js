@@ -1,4 +1,5 @@
 "use client";
+import { useAuth } from "@/store/useAuthStore.js";
 import {
   MessageCircleIcon,
   MailIcon,
@@ -13,18 +14,34 @@ function LoginPage() {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const isLoggingIn = false;
 
-  const handleSubmit = (e) => {
-    e.preventDefault();
+  const login = useAuth((state) => state.login);
+  const register = useAuth((state) => state.register);
+
+  const handleRegister = () => {
+    register({ username : name, email, password });
+    setEmail("");
+    setName("");
+    setPassword("");
+  };
+  const handleLogin = () => {
+    login({ email, password });
+    setEmail("");
+    setName("");
+    setPassword("");
   };
 
   return (
     <div className="min-h-screen w-full flex items-center justify-center bg-gradient-to-br from-emerald-900 via-green-900 to-emerald-950 p-4">
       <div className="relative w-full max-w-6xl md:h-[780px] h-[650px]">
-        <div className={`h-full flex flex-col md:flex-row overflow-hidden rounded-3xl border border-emerald-500/30 bg-emerald-900/30 backdrop-blur-xl shadow-2xl shadow-emerald-900/40`}>
-          
-          <div className={`md:w-1/2 md:max-h-screen ${loginPage ? '' : 'md:order-2'} flex items-center justify-center p-8 bg-gradient-to-br from-emerald-950/90 to-green-950/90 border-r border-emerald-500/20`}>
+        <div
+          className={`h-full flex flex-col md:flex-row overflow-hidden rounded-3xl border border-emerald-500/30 bg-emerald-900/30 backdrop-blur-xl shadow-2xl shadow-emerald-900/40`}
+        >
+          <div
+            className={`md:w-1/2 md:max-h-screen ${
+              loginPage ? "" : "md:order-2"
+            } flex items-center justify-center p-8 bg-gradient-to-br from-emerald-950/90 to-green-950/90 border-r border-emerald-500/20`}
+          >
             {/* FORM Container */}
             <div className="w-full max-w-md">
               {/* HEADER */}
@@ -38,13 +55,14 @@ function LoginPage() {
                   {loginPage ? "Welcome Back" : "Create Account"}
                 </h2>
                 <p className="text-emerald-300/70">
-                  {loginPage ? "Login to continue your journey" : "Join us and start your journey"}
+                  {loginPage
+                    ? "Login to continue your journey"
+                    : "Join us and start your journey"}
                 </p>
               </div>
 
               {/* FORM */}
-              <form onSubmit={handleSubmit} className="space-y-5">
-               
+              <div className="space-y-5">
                 {!loginPage && (
                   <div>
                     <label className="text-sm text-emerald-200 mb-1 block">
@@ -98,20 +116,23 @@ function LoginPage() {
                 </div>
 
                 {/* BUTTON */}
-                <button
-                  type="submit"
-                  disabled={isLoggingIn}
-                  className="w-full flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-emerald-500 to-green-600 py-3 font-semibold text-white shadow-lg shadow-emerald-500/30 hover:from-emerald-400 hover:to-green-500 transition disabled:opacity-60"
-                >
-                  {isLoggingIn ? (
-                    <LoaderIcon className="w-5 h-5 animate-spin text-white" />
-                  ) : loginPage ? (
-                    "Sign In"
-                  ) : (
-                    "Sign Up"
-                  )}
-                </button>
-              </form>
+                {!!loginPage ? (
+                  <button
+                    onClick={handleLogin}
+                    // disabled={isLoggingIn}
+                    className="w-full flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-emerald-500 to-green-600 py-3 font-semibold text-white shadow-lg shadow-emerald-500/30 hover:from-emerald-400 hover:to-green-500 transition disabled:opacity-60"
+                  >
+                    Log in
+                  </button>
+                ) : (
+                  <button
+                    onClick={handleRegister}
+                    className="w-full flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-emerald-500 to-green-600 py-3 font-semibold text-white shadow-lg shadow-emerald-500/30 hover:from-emerald-400 hover:to-green-500 transition disabled:opacity-60"
+                  >
+                    Register
+                  </button>
+                )}
+              </div>
 
               {/* FOOTER */}
               <div className="mt-6 text-center text-emerald-300/80">
@@ -140,8 +161,11 @@ function LoginPage() {
             </div>
           </div>
 
-          
-          <div className={`md:w-1/2 ${loginPage ? '' : 'md:order-1'} hidden md:flex items-center justify-center relative bg-gradient-to-tr from-emerald-800/20 to-transparent`}>
+          <div
+            className={`md:w-1/2 ${
+              loginPage ? "" : "md:order-1"
+            } hidden md:flex items-center justify-center relative bg-gradient-to-tr from-emerald-800/20 to-transparent`}
+          >
             <div className="absolute inset-0 bg-emerald-500/5"></div>
             <div className="relative z-10 text-center">
               <img
@@ -155,7 +179,7 @@ function LoginPage() {
               </h3>
 
               <div className="mt-4 flex justify-center gap-3">
-                {loginPage 
+                {loginPage
                   ? ["Free", "Secure", "Fast"].map((tag) => (
                       <span
                         key={tag}
@@ -164,15 +188,16 @@ function LoginPage() {
                         {tag}
                       </span>
                     ))
-                  : ["Easy Setup", "24/7 Support", "Privacy First"].map((tag) => (
-                      <span
-                        key={tag}
-                        className="px-3 py-1 rounded-full text-sm bg-green-500/10 border border-green-400/30 text-green-300"
-                      >
-                        {tag}
-                      </span>
-                    ))
-                }
+                  : ["Easy Setup", "24/7 Support", "Privacy First"].map(
+                      (tag) => (
+                        <span
+                          key={tag}
+                          className="px-3 py-1 rounded-full text-sm bg-green-500/10 border border-green-400/30 text-green-300"
+                        >
+                          {tag}
+                        </span>
+                      )
+                    )}
               </div>
             </div>
           </div>

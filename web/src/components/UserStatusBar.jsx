@@ -10,7 +10,7 @@ const UserStatusBar = () => {
   return (
     <div>
         <div className='border-2 '>
-            <Image src='../../public/avatar.png' height={30} width={30}/>
+            {/* <Imag src='../../public/avatar.png' height={30} width={30}/> */}
             <div>
                 <p>{user.username}</p>
                 <p>{user.status}</p>
