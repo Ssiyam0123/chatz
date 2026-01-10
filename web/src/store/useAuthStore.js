@@ -12,7 +12,7 @@ export const useAuth = create((set, get) => ({
   checkAuth: async () => {
     try {
       const { data } = await axiosInstance.get("/auth/check");
-      console.log("checking auth", data)
+      console.log("checking auth", data);
       set({ authUser: data });
     } catch (error) {
       console.log("error in checking auth");
@@ -43,11 +43,20 @@ export const useAuth = create((set, get) => ({
         password,
       });
       set({ authUser: data.user });
-    //   console.log(data);
+      //   console.log(data);
     } catch (error) {
       console.log(error);
     } finally {
       set({ isCheckingAuth: false });
+    }
+  },
+  logout: async () => {
+    try {
+      const { data } = await axiosInstance.post("/auth/logout");
+      console.log("logout data : ", data);
+      set({ authUser: null });
+    } catch (error) {
+      console.log("Logout error:", error);
     }
   },
 }));
