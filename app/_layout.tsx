@@ -1,24 +1,23 @@
-import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
 import { Stack } from 'expo-router';
-import { StatusBar } from 'expo-status-bar';
-import 'react-native-reanimated';
-
-import { useColorScheme } from '@/hooks/use-color-scheme';
-
-export const unstable_settings = {
-  anchor: '(tabs)',
-};
+import { useAuth } from '../hooks/useAuth.js'; // You'll create this
 
 export default function RootLayout() {
-  const colorScheme = useColorScheme();
+  const { user, isLoading } = useAuth();
+
+  // Show loading screen while checking auth
+  if (isLoading) {
+    return null; // or a loading spinner
+  }
 
   return (
-    <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-      <Stack>
-        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-        <Stack.Screen name="modal" options={{ presentation: 'modal', title: 'Modal' }} />
-      </Stack>
-      <StatusBar style="auto" />
-    </ThemeProvider>
+    <Stack screenOptions={{ headerShown: false }}>
+      {!user ? (
+        // Auth group - no user logged in
+        <Stack.Screen name="(auth)" options={{ headerShown: false }} />
+      ) : (
+        // App group - user is logged in
+        <Stack.Screen name="(app)" options={{ headerShown: false }} />
+      )}
+    </Stack>
   );
 }
