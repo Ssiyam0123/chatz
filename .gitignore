@@ -1,0 +1,35 @@
+# Dependencies
+**/node_modules/
+**/dist/
+**/.next/
+**/build/
+
+# Environment Files
+**/.env
+**/.env.local
+**/.env.*.local
+
+# Debug and Logs
+**/npm-debug.log*
+**/yarn-debug.log*
+**/yarn-error.log*
+**/.pnpm-debug.log*
+
+# OS Files
+.DS_Store
+Thumbs.db
+
+# Project specific
+backend/uploads/
+backend/dbdata/
+backend/images/
+backend/combined_codebase.txt
+backend/josns/
+backend/extract.js
+
+web/combined_codebase.txt
+web/extract.js
+
+
+**/combined_codebase.txt
+**/extract.js
