@@ -6,7 +6,7 @@ import cors from 'cors';
 import { initSocket } from './socket/socket.handler.js';
 import authRoutes from './modules/auth/auth.route.js';
 import chatRoutes from './modules/chat/chat.route.js';
-
+import userRoutes from './modules/user/user.route.js';
 dotenv.config();
 const app = express();
 const server = http.createServer(app);
@@ -17,8 +17,8 @@ app.use(express.json());
 // Routes
 app.use('/api/v1/auth', authRoutes);
 app.use('/api/v1/chat', chatRoutes);
+app.use('/api/v1/user', userRoutes); 
 
-// Global Error Handler
 app.use((err, req, res, next) => {
   res.status(500).json({ status: 'error', message: err.message });
 });

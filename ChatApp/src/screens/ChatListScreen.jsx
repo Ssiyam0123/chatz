@@ -1,5 +1,13 @@
 import React, { useEffect } from 'react';
-import { View, Text, FlatList, TouchableOpacity, StyleSheet, ActivityIndicator } from 'react-native';
+import {
+  View,
+  Text,
+  FlatList,
+  TouchableOpacity,
+  StyleSheet,
+  ActivityIndicator,
+  Image,
+} from 'react-native';
 import { useChatStore } from '../stores/chatStore';
 
 export default function ChatListScreen({ navigation }) {
@@ -11,28 +19,41 @@ export default function ChatListScreen({ navigation }) {
 
   const renderItem = ({ item }) => {
     const contact = item.userDetails;
-    
+    const avatarUrl = contact?.avatar;
+
     return (
-      <TouchableOpacity 
+      <TouchableOpacity
         style={styles.chatItem}
-        onPress={() => navigation.navigate('ChatDetail', { 
-          userId: contact._id, 
-          userName: contact.name 
-        })}
+        onPress={() =>
+          navigation.navigate('ChatDetail', {
+            userId: contact._id,
+            userName: contact.name,
+          })
+        }
       >
-        <View style={styles.avatar}>
-          <Text style={styles.avatarText}>{contact.name[0].toUpperCase()}</Text>
-        </View>
-        
+        {/* Avatar with image support */}
+        {avatarUrl ? (
+          <Image source={{ uri: avatarUrl }} style={styles.avatarImage} />
+        ) : (
+          <View style={styles.avatarPlaceholder}>
+            <Text style={styles.avatarText}>{contact.name[0].toUpperCase()}</Text>
+          </View>
+        )}
+
         <View style={styles.content}>
           <View style={styles.header}>
             <Text style={styles.name}>{contact.name}</Text>
             <Text style={styles.time}>
-              {new Date(item.lastMessageTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+              {item.lastMessageTime
+                ? new Date(item.lastMessageTime).toLocaleTimeString([], {
+                    hour: '2-digit',
+                    minute: '2-digit',
+                  })
+                : ''}
             </Text>
           </View>
           <Text style={styles.lastMsg} numberOfLines={1}>
-            {item.lastMessage}
+            {item.lastMessage || 'No messages yet'}
           </Text>
         </View>
       </TouchableOpacity>
@@ -41,7 +62,9 @@ export default function ChatListScreen({ navigation }) {
 
   if (isLoadingUsers && conversations.length === 0) {
     return (
-      <View style={styles.center}><ActivityIndicator color="#007bff" /></View>
+      <View style={styles.center}>
+        <ActivityIndicator color="#007bff" />
+      </View>
     );
   }
 
@@ -50,7 +73,7 @@ export default function ChatListScreen({ navigation }) {
       <FlatList
         data={conversations}
         renderItem={renderItem}
-        keyExtractor={item => item._id}
+        keyExtractor={(item) => item._id}
         ListEmptyComponent={
           <View style={styles.empty}>
             <Text style={styles.emptyText}>No conversations yet.</Text>
@@ -74,7 +97,13 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: '#f0f0f0',
   },
-  avatar: {
+  avatarImage: {
+    width: 55,
+    height: 55,
+    borderRadius: 27.5,
+    backgroundColor: '#ddd',
+  },
+  avatarPlaceholder: {
     width: 55,
     height: 55,
     borderRadius: 27.5,
@@ -90,5 +119,5 @@ const styles = StyleSheet.create({
   lastMsg: { fontSize: 14, color: '#666', maxWidth: '90%' },
   empty: { flex: 1, alignItems: 'center', marginTop: 100 },
   emptyText: { color: '#999', fontSize: 16 },
-  startText: { color: '#007bff', marginTop: 10, fontWeight: '600' }
+  startText: { color: '#007bff', marginTop: 10, fontWeight: '600' },
 });

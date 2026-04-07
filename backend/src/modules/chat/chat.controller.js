@@ -4,7 +4,7 @@ import mongoose from 'mongoose';
 
 export const getAllUsers = async (req, res) => {
   try {
-    const users = await User.find({ _id: { $ne: req.user.id } }).select('name email');
+    const users = await User.find({ _id: { $ne: req.user.id } }).select('name email avatar bio');
     res.status(200).json({ status: 'success', data: users });
   } catch (err) {
     res.status(500).json({ message: err.message });
@@ -25,7 +25,6 @@ export const getChatHistory = async (req, res) => {
     res.status(500).json({ message: err.message });
   }
 };
-
 
 export const getConversations = async (req, res) => {
   try {

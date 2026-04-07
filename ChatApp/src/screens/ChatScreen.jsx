@@ -10,39 +10,61 @@ import {
   Platform,
   ActivityIndicator,
   SafeAreaView,
-  StatusBar,
+  Keyboard,
+  TouchableWithoutFeedback,
 } from 'react-native';
 import { useHeaderHeight } from '@react-navigation/elements';
 import { useChatStore } from '../stores/chatStore';
 import { useAuthStore } from '../stores/authStore';
-import { sendMessage as emitSocketMessage } from '../utils/socket';
+import { sendMessage } from '../utils/socket';
 
 export default function ChatScreen({ route }) {
   const { userId: partnerId, userName } = route.params;
   const [inputText, setInputText] = useState('');
   const flatListRef = useRef(null);
-  
   const headerHeight = useHeaderHeight();
+
   const currentUserId = useAuthStore((state) => state.user?.id);
   const { messages, isLoadingMessages, setActiveChat } = useChatStore();
 
+  // Load chat history when screen opens
   useEffect(() => {
     setActiveChat(partnerId);
     return () => setActiveChat(null);
   }, [partnerId]);
 
+  // Auto-scroll to bottom when new messages arrive
+  useEffect(() => {
+    if (messages.length > 0 && flatListRef.current) {
+      setTimeout(() => {
+        flatListRef.current?.scrollToEnd({ animated: true });
+      }, 100);
+    }
+  }, [messages]);
+
   const handleSend = () => {
     if (!inputText.trim()) return;
-    emitSocketMessage(partnerId, inputText.trim());
+    const clientId = Date.now() + '-' + Math.random().toString(36);
+
+    // Optimistic message
+    const tempMessage = {
+      _id: clientId,
+      sender: currentUserId,
+      receiver: partnerId,
+      text: inputText.trim(),
+      createdAt: new Date().toISOString(),
+      clientId,
+    };
+    useChatStore.getState().addMessage(tempMessage);
+
+    sendMessage(partnerId, inputText.trim(), clientId);
     setInputText('');
   };
 
-  const formatTime = (date) => {
-    return new Date(date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-  };
-
   const renderMessage = ({ item }) => {
-    const isMe = item.sender === currentUserId;
+    const senderId = typeof item.sender === 'object' ? item.sender._id : item.sender;
+    const isMe = senderId === currentUserId;
+
     return (
       <View style={[styles.messageRow, isMe ? styles.myMessageRow : styles.theirMessageRow]}>
         <View style={[styles.messageBubble, isMe ? styles.myBubble : styles.theirBubble]}>
@@ -50,7 +72,7 @@ export default function ChatScreen({ route }) {
             {item.text}
           </Text>
           <Text style={[styles.timeText, isMe ? styles.myTime : styles.theirTime]}>
-            {formatTime(item.createdAt || new Date())}
+            {new Date(item.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
           </Text>
         </View>
       </View>
@@ -59,58 +81,50 @@ export default function ChatScreen({ route }) {
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      <StatusBar barStyle="dark-content" />
-      <KeyboardAvoidingView
-        style={styles.container}
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-
-        keyboardVerticalOffset={headerHeight}
-      >
-        <View style={styles.inner}>
-          {isLoadingMessages ? (
-            <View style={styles.center}>
-              <ActivityIndicator size="small" color="#007bff" />
-            </View>
-          ) : (
-            <FlatList
-              ref={flatListRef}
-              data={messages}
-              keyExtractor={(item, index) => item._id || index.toString()}
-              renderItem={renderMessage}
-              contentContainerStyle={styles.messagesList}
-              onContentSizeChange={() => flatListRef.current?.scrollToEnd({ animated: true })}
-              onLayout={() => flatListRef.current?.scrollToEnd({ animated: true })}
-              showsVerticalScrollIndicator={false}
-              ListEmptyComponent={() => (
-                <View style={styles.emptyContainer}>
-                  <Text style={styles.emptyText}>Say hi to {userName}!</Text>
-                </View>
-              )}
-            />
-          )}
-
-          <View style={styles.inputWrapper}>
-            <View style={styles.inputContainer}>
-              <TextInput
-                style={styles.input}
-                value={inputText}
-                onChangeText={setInputText}
-                placeholder="Type your message..."
-                placeholderTextColor="#999"
-                multiline={true}
-                blurOnSubmit={false}
+      <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
+        <KeyboardAvoidingView
+          style={styles.container}
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          keyboardVerticalOffset={headerHeight + 10}
+        >
+          <View style={styles.inner}>
+            {isLoadingMessages ? (
+              <ActivityIndicator style={styles.center} color="#007bff" />
+            ) : (
+              <FlatList
+                ref={flatListRef}
+                data={messages}
+                keyExtractor={(item) => item._id || item.clientId}
+                renderItem={renderMessage}
+                contentContainerStyle={styles.messagesList}
+                onContentSizeChange={() => flatListRef.current?.scrollToEnd({ animated: true })}
+                onLayout={() => flatListRef.current?.scrollToEnd({ animated: true })}
+                ListEmptyComponent={
+                  <Text style={styles.emptyText}>Start a conversation with {userName}</Text>
+                }
               />
-              <TouchableOpacity 
-                style={[styles.sendButton, !inputText.trim() && styles.disabledButton]} 
-                onPress={handleSend}
-                disabled={!inputText.trim()}
-              >
-                <Text style={styles.sendText}>Send</Text>
-              </TouchableOpacity>
+            )}
+
+            <View style={styles.inputWrapper}>
+              <View style={styles.inputContainer}>
+                <TextInput
+                  style={styles.input}
+                  value={inputText}
+                  onChangeText={setInputText}
+                  placeholder="Message..."
+                  multiline
+                  blurOnSubmit={false}
+                />
+                <TouchableOpacity onPress={handleSend} disabled={!inputText.trim()}>
+                  <View style={[styles.sendButton, !inputText.trim() && styles.disabledButton]}>
+                    <Text style={styles.sendText}>Send</Text>
+                  </View>
+                </TouchableOpacity>
+              </View>
             </View>
           </View>
-        </View>
-      </KeyboardAvoidingView>
+        </KeyboardAvoidingView>
+      </TouchableWithoutFeedback>
     </SafeAreaView>
   );
 }
@@ -124,16 +138,16 @@ const styles = StyleSheet.create({
   messageRow: { marginBottom: 10, flexDirection: 'row' },
   myMessageRow: { justifyContent: 'flex-end' },
   theirMessageRow: { justifyContent: 'flex-start' },
-  messageBubble: { 
-    maxWidth: '80%', 
-    paddingHorizontal: 15, 
-    paddingVertical: 10, 
+  messageBubble: {
+    maxWidth: '80%',
+    paddingHorizontal: 15,
+    paddingVertical: 10,
     borderRadius: 20,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.05,
     shadowRadius: 2,
-    elevation: 1
+    elevation: 1,
   },
   myBubble: { backgroundColor: '#007bff', borderBottomRightRadius: 4 },
   theirBubble: { backgroundColor: '#f1f1f1', borderBottomLeftRadius: 4 },
@@ -177,6 +191,5 @@ const styles = StyleSheet.create({
   },
   disabledButton: { backgroundColor: '#b0d4ff' },
   sendText: { color: '#fff', fontWeight: 'bold' },
-  emptyContainer: { flex: 1, alignItems: 'center', marginTop: 50 },
-  emptyText: { color: '#aaa', fontStyle: 'italic' }
+  emptyText: { color: '#aaa', fontStyle: 'italic', textAlign: 'center', marginTop: 50 },
 });

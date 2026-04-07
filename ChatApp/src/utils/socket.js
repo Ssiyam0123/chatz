@@ -1,47 +1,72 @@
+// utils/socket.js
 import io from 'socket.io-client';
-import { API_URL } from '../constants';
+import { useAuthStore } from '../stores/authStore';
 import { useChatStore } from '../stores/chatStore';
 
 let socket = null;
 
 export const initSocket = (token) => {
-  if (socket?.connected) return;
+  if (socket) {
+    console.log('Socket already initialized');
+    return socket;
+  }
 
-  socket = io(API_URL, {
+  if (!token) {
+    console.warn('⚠️ No token, cannot init socket');
+    return null;
+  }
+
+  const BACKEND_URL = 'http://192.168.0.108:5001'; // Replace with your actual backend URL
+
+  socket = io(BACKEND_URL, {
     auth: { token },
     transports: ['websocket'],
-    reconnection: true,
   });
 
+  socket.on('connect', () => {
+    console.log('✅ Socket connected');
+  });
+
+  // Incoming message
   socket.on('receive_message', (message) => {
-    const { activeChatPartnerId, addMessage } = useChatStore.getState();
-    if (activeChatPartnerId === message.sender) {
-      addMessage(message);
-    }
+    console.log('📨 New message received', message);
+    useChatStore.getState().addMessage(message);
   });
 
-  socket.on('message_sent', (message) => {
-    const { activeChatPartnerId, addMessage } = useChatStore.getState();
-    if (activeChatPartnerId === message.receiver) {
-      addMessage(message);
-    }
+  // Conversation list update (last message, time, avatar)
+  socket.on('conversation_update', (conversation) => {
+    console.log('🔄 Conversation update', conversation);
+    useChatStore.getState().updateConversation(conversation);
   });
 
-  socket.on('connect', () => console.log('✅ Socket Connected'));
-  socket.on('connect_error', (err) => console.log("❌ Socket Error:", err.message));
+  // Message sent confirmation (for optimistic UI)
+  socket.on('message_sent', (confirmedMessage) => {
+    console.log('✅ Message confirmed', confirmedMessage);
+    useChatStore.getState().confirmMessage(confirmedMessage);
+  });
+
+  socket.on('connect_error', (err) => {
+    console.error('❌ Socket connection error', err.message);
+  });
+
+  return socket;
 };
 
-export const sendMessage = (receiverId, text) => {
-  if (socket?.connected) {
-    socket.emit('send_message', { receiverId, text });
-  } else {
-    console.warn("⚠️ Socket not connected, message not sent");
+export const getSocket = () => socket;
+
+export const sendMessage = (receiverId, text, clientId = null) => {
+  if (!socket) {
+    console.warn('⚠️ Socket not initialized');
+    return false;
   }
+  socket.emit('send_message', { receiverId, text, clientId });
+  return true;
 };
 
 export const disconnectSocket = () => {
   if (socket) {
     socket.disconnect();
     socket = null;
+    console.log('Socket disconnected');
   }
 };
