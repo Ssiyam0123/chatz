@@ -16,7 +16,7 @@ export const initSocket = (token) => {
     return null;
   }
 
-  const BACKEND_URL = 'http://192.168.0.108:5001'; // Replace with your actual backend URL
+  const BACKEND_URL = 'http://192.168.0.108:5001' || 'https://ecowear-backend.vercel.app'; // Replace with your actual backend URL
 
   socket = io(BACKEND_URL, {
     auth: { token },
