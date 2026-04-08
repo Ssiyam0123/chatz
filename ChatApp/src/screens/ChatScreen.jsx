@@ -27,13 +27,11 @@ export default function ChatScreen({ route }) {
   const currentUserId = useAuthStore((state) => state.user?.id);
   const { messages, isLoadingMessages, setActiveChat } = useChatStore();
 
-  // Load chat history when screen opens
   useEffect(() => {
     setActiveChat(partnerId);
     return () => setActiveChat(null);
   }, [partnerId]);
 
-  // Auto-scroll to bottom when new messages arrive
   useEffect(() => {
     if (messages.length > 0 && flatListRef.current) {
       setTimeout(() => {
@@ -46,7 +44,6 @@ export default function ChatScreen({ route }) {
     if (!inputText.trim()) return;
     const clientId = Date.now() + '-' + Math.random().toString(36);
 
-    // Optimistic message
     const tempMessage = {
       _id: clientId,
       sender: currentUserId,

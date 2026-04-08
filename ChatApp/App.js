@@ -14,7 +14,7 @@ export default function App() {
     } else if (isHydrated && !token) {
       disconnectSocket();
     }
-    return () => disconnectSocket(); // Cleanup on app close
+    return () => disconnectSocket(); 
   }, [isHydrated, token, user]);
 
   if (!isHydrated) {

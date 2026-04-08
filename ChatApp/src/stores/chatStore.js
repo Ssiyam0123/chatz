@@ -11,17 +11,15 @@ export const useChatStore = create((set, get) => ({
   isLoadingUsers: false,
   isLoadingMessages: false,
 
-  // Fetch all conversations (inbox)
   fetchConversations: async () => {
     try {
-      const res = await api.get('/chat/conversations');
+      const res = await api.get("/chat/conversations");
       set({ conversations: res.data.data });
     } catch (error) {
       console.error("Inbox fetch failed", error);
     }
   },
 
-  // Fetch message history with a specific user
   fetchMessages: async (partnerId) => {
     set({ isLoadingMessages: true, messages: [] });
     try {
@@ -34,60 +32,79 @@ export const useChatStore = create((set, get) => ({
     }
   },
 
-  // Add a new message (called from socket or after sending)
+
   addMessage: (message) => {
+    if (!message) return; 
+
     const { messages, activeChatPartnerId, conversations } = get();
-    const currentUserId = useAuthStore.getState().user?.id;
+    const user = useAuthStore.getState().user;
 
-    // Normalize sender/receiver IDs (could be object or string)
-    const senderId = typeof message.sender === 'object' ? message.sender._id : message.sender;
-    const receiverId = typeof message.receiver === 'object' ? message.receiver._id : message.receiver;
+  
+    const currentUserId = user?.id || user?._id;
+    if (!currentUserId) {
+      console.error("Auth user not found in store");
+      return;
+    }
 
-    // 1. Update messages array if this message belongs to the open chat
-    if (senderId === activeChatPartnerId || receiverId === activeChatPartnerId) {
-      const isDuplicate = messages.some(m => m._id === message._id);
+    const senderId = message.sender?._id || message.sender;
+    const receiverId = message.receiver?._id || message.receiver;
+
+    if (
+      senderId === activeChatPartnerId ||
+      receiverId === activeChatPartnerId
+    ) {
+      const isDuplicate = messages.some((m) => m._id === message._id);
       if (!isDuplicate) {
-        set({ messages: [...messages, message] });
+        set({ messages: [...get().messages, message] });
       }
     }
 
-    // 2. Update conversations list (move to top, update last message)
-    const isReceived = senderId !== currentUserId;
-    const partnerId = isReceived ? senderId : receiverId;
-    const partnerDetails = isReceived ? message.sender : message.receiver;
+    set((state) => {
+      const isReceived = senderId !== currentUserId;
 
-    let updatedConversations = [...conversations];
-    const existingIndex = updatedConversations.findIndex(c => c._id === partnerId);
+      const partnerId = isReceived ? senderId : receiverId;
+      const partnerData = isReceived
+        ? message.sender
+        : { _id: receiverId, name: "Chat" };
 
-    const newConversationEntry = {
-      _id: partnerId,
-      userDetails: partnerDetails || { _id: partnerId, name: "User" },
-      lastMessage: message.text,
-      lastMessageTime: message.createdAt,
-    };
+      if (!partnerId) return state; 
 
-    if (existingIndex !== -1) {
-      // Update existing conversation
-      updatedConversations[existingIndex] = {
-        ...updatedConversations[existingIndex],
-        lastMessage: message.text,
-        lastMessageTime: message.createdAt,
-      };
-      // Move to top
-      const [moved] = updatedConversations.splice(existingIndex, 1);
-      updatedConversations.unshift(moved);
-    } else {
-      // New conversation
-      updatedConversations.unshift(newConversationEntry);
-    }
+      const existingIdx = state.conversations.findIndex(
+        (c) => c._id === partnerId,
+      );
+      let updatedConv = [...state.conversations];
 
-    set({ conversations: updatedConversations });
+      if (existingIdx !== -1) {
+        const updatedItem = {
+          ...updatedConv[existingIdx],
+          lastMessage: message.text,
+          lastMessageTime: message.createdAt,
+        };
+        updatedConv.splice(existingIdx, 1);
+        updatedConv.unshift(updatedItem);
+      } else {
+        updatedConv.unshift({
+          _id: partnerId,
+          userDetails: {
+            _id: partnerId,
+            name: partnerData?.name || "User",
+            avatar: partnerData?.avatar || "",
+          },
+          lastMessage: message.text,
+          lastMessageTime: message.createdAt,
+        });
+        get().fetchConversations();
+      }
+
+      return { conversations: updatedConv };
+    });
   },
 
-  // Update a single conversation (used by conversation_update event)
   updateConversation: (conversation) => {
     const { conversations } = get();
-    const existingIndex = conversations.findIndex(c => c._id === conversation._id);
+    const existingIndex = conversations.findIndex(
+      (c) => c._id === conversation._id,
+    );
     let updated = [...conversations];
     if (existingIndex !== -1) {
       updated[existingIndex] = { ...updated[existingIndex], ...conversation };
@@ -100,11 +117,11 @@ export const useChatStore = create((set, get) => ({
     set({ conversations: updated });
   },
 
-  // Confirm an optimistic message (replace clientId with real _id)
+
   confirmMessage: (confirmedMessage) => {
     const { messages } = get();
-    const updatedMessages = messages.map(msg =>
-      msg.clientId === confirmedMessage.clientId ? confirmedMessage : msg
+    const updatedMessages = messages.map((msg) =>
+      msg.clientId === confirmedMessage.clientId ? confirmedMessage : msg,
     );
     set({ messages: updatedMessages });
   },

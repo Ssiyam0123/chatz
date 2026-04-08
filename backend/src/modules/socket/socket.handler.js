@@ -3,7 +3,6 @@ import jwt from 'jsonwebtoken';
 import Message from '../chat/message.model.js';
 import User from '../user/user.model.js';
 
-// Map userId -> Set of socket.id (supports multiple tabs)
 const userSockets = new Map();
 
 export const initSocket = (server) => {
@@ -39,10 +38,9 @@ export const initSocket = (server) => {
     userSockets.get(userId).add(socket.id);
     console.log(`✅ User ${userId} connected. Active sockets: ${Array.from(userSockets.get(userId)).join(', ')}`);
 
-    // Notify the user that they are connected (optional)
     socket.emit('connected', { userId });
 
-    // Handle sending a message (supports optimistic UI with clientId)
+
     socket.on('send_message', async ({ receiverId, text, clientId }) => {
       console.log(`📨 Message from ${userId} to ${receiverId}: "${text}" (clientId: ${clientId})`);
       try {
@@ -58,29 +56,31 @@ export const initSocket = (server) => {
           .populate('sender', 'name avatar')
           .exec();
 
-        // Prepare conversation summary for real‑time chat list update
-        const sender = await User.findById(userId).select('name avatar');
-        const receiver = await User.findById(receiverId).select('name avatar');
+     
+        const senderDetails = await User.findById(userId).select('name avatar');
+        const receiverDetails = await User.findById(receiverId).select('name avatar');
 
+      
         const conversationForReceiver = {
           _id: userId,
           lastMessage: text,
           lastMessageTime: newMessage.createdAt,
           userDetails: {
             _id: userId,
-            name: sender.name,
-            avatar: sender.avatar
+            name: senderDetails.name,
+            avatar: senderDetails.avatar
           }
         };
 
+  
         const conversationForSender = {
           _id: receiverId,
           lastMessage: text,
           lastMessageTime: newMessage.createdAt,
           userDetails: {
             _id: receiverId,
-            name: receiver.name,
-            avatar: receiver.avatar
+            name: receiverDetails.name,
+            avatar: receiverDetails.avatar
           }
         };
 
@@ -96,7 +96,7 @@ export const initSocket = (server) => {
           console.log(`⚠️ Receiver ${receiverId} is offline`);
         }
 
-        // Confirm delivery to sender (with clientId for optimistic UI)
+      
         const messageWithClientId = {
           ...populatedMessage.toObject(),
           clientId
@@ -112,7 +112,6 @@ export const initSocket = (server) => {
       }
     });
 
-    // Handle typing indicators (optional but good for UX)
     socket.on('typing', ({ receiverId, isTyping }) => {
       const receiverSockets = userSockets.get(receiverId);
       if (receiverSockets) {

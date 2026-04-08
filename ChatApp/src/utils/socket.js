@@ -2,6 +2,7 @@
 import io from 'socket.io-client';
 import { useAuthStore } from '../stores/authStore';
 import { useChatStore } from '../stores/chatStore';
+import { API_URL } from '../constants';
 
 let socket = null;
 
@@ -16,7 +17,7 @@ export const initSocket = (token) => {
     return null;
   }
 
-  const BACKEND_URL = 'http://192.168.0.108:5001' || 'https://ecowear-backend.vercel.app'; // Replace with your actual backend URL
+  const BACKEND_URL = API_URL
 
   socket = io(BACKEND_URL, {
     auth: { token },
