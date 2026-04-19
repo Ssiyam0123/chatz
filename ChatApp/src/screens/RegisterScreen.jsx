@@ -70,7 +70,18 @@ export default function RegisterScreen({ navigation }) {
 
           <TouchableOpacity
             style={styles.button}
-            onPress={() => register(name, email, password)}
+            onPress={async () => {
+              if (!name || !email || !password) {
+                Alert.alert("Error", "Please fill in all fields");
+                return;
+              }
+              try {
+                await register(name, email, password);
+              } catch (error) {
+                const errorMsg = error.response?.data?.message || "Registration failed";
+                Alert.alert("Registration Error", errorMsg);
+              }
+            }}
           >
             <Text style={styles.buttonText}>Sign Up</Text>
           </TouchableOpacity>

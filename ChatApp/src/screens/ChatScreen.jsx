@@ -27,11 +27,15 @@ export default function ChatScreen({ route }) {
   const currentUserId = useAuthStore((state) => state.user?.id);
   const { messages, isLoadingMessages, setActiveChat } = useChatStore();
 
+  // ওয়েব নাকি মোবাইল সেটা চেক করার জন্য
+  const isWeb = Platform.OS === 'web';
+
   useEffect(() => {
     setActiveChat(partnerId);
     return () => setActiveChat(null);
   }, [partnerId]);
 
+  // নতুন মেসেজ আসলে অটো স্ক্রল হবে
   useEffect(() => {
     if (messages.length > 0 && flatListRef.current) {
       setTimeout(() => {
@@ -42,6 +46,7 @@ export default function ChatScreen({ route }) {
 
   const handleSend = () => {
     if (!inputText.trim()) return;
+
     const clientId = Date.now() + '-' + Math.random().toString(36);
 
     const tempMessage = {
@@ -52,8 +57,11 @@ export default function ChatScreen({ route }) {
       createdAt: new Date().toISOString(),
       clientId,
     };
+
+    // Optimistic UI Update
     useChatStore.getState().addMessage(tempMessage);
 
+    // Socket Emit
     sendMessage(partnerId, inputText.trim(), clientId);
     setInputText('');
   };
@@ -76,52 +84,65 @@ export default function ChatScreen({ route }) {
     );
   };
 
+  // চ্যাটবক্সের মূল কন্টেন্ট
+  const ChatContent = (
+    <View style={styles.inner}>
+      {isLoadingMessages ? (
+        <ActivityIndicator style={styles.center} color="#007bff" />
+      ) : (
+        <FlatList
+          ref={flatListRef}
+          data={messages}
+          keyExtractor={(item) => item._id || item.clientId || Math.random().toString()}
+          renderItem={renderMessage}
+          contentContainerStyle={styles.messagesList}
+          onContentSizeChange={() => flatListRef.current?.scrollToEnd({ animated: true })}
+          onLayout={() => flatListRef.current?.scrollToEnd({ animated: true })}
+          ListEmptyComponent={
+            <Text style={styles.emptyText}>Start a conversation with {userName}</Text>
+          }
+        />
+      )}
+
+      <View style={styles.inputWrapper}>
+        <View style={styles.inputContainer}>
+          <TextInput
+            style={styles.input}
+            value={inputText}
+            onChangeText={setInputText}
+            placeholder="Message..."
+            multiline
+            blurOnSubmit={false}
+            // ওয়েব ভার্সনে এন্টার দিলে মেসেজ পাঠানোর জন্য (ঐচ্ছিক)
+            onSubmitEditing={isWeb ? handleSend : undefined}
+          />
+          <TouchableOpacity onPress={handleSend} disabled={!inputText.trim()}>
+            <View style={[styles.sendButton, !inputText.trim() && styles.disabledButton]}>
+              <Text style={styles.sendText}>Send</Text>
+            </View>
+          </TouchableOpacity>
+        </View>
+      </View>
+    </View>
+  );
+
   return (
     <SafeAreaView style={styles.safeArea}>
-      <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
-        <KeyboardAvoidingView
-          style={styles.container}
-          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-          keyboardVerticalOffset={headerHeight + 10}
-        >
-          <View style={styles.inner}>
-            {isLoadingMessages ? (
-              <ActivityIndicator style={styles.center} color="#007bff" />
-            ) : (
-              <FlatList
-                ref={flatListRef}
-                data={messages}
-                keyExtractor={(item) => item._id || item.clientId}
-                renderItem={renderMessage}
-                contentContainerStyle={styles.messagesList}
-                onContentSizeChange={() => flatListRef.current?.scrollToEnd({ animated: true })}
-                onLayout={() => flatListRef.current?.scrollToEnd({ animated: true })}
-                ListEmptyComponent={
-                  <Text style={styles.emptyText}>Start a conversation with {userName}</Text>
-                }
-              />
-            )}
-
-            <View style={styles.inputWrapper}>
-              <View style={styles.inputContainer}>
-                <TextInput
-                  style={styles.input}
-                  value={inputText}
-                  onChangeText={setInputText}
-                  placeholder="Message..."
-                  multiline
-                  blurOnSubmit={false}
-                />
-                <TouchableOpacity onPress={handleSend} disabled={!inputText.trim()}>
-                  <View style={[styles.sendButton, !inputText.trim() && styles.disabledButton]}>
-                    <Text style={styles.sendText}>Send</Text>
-                  </View>
-                </TouchableOpacity>
-              </View>
-            </View>
-          </View>
-        </KeyboardAvoidingView>
-      </TouchableWithoutFeedback>
+      {isWeb ? (
+        // ওয়েবের জন্য সিম্পল ভিউ (যাতে টাইপিং ব্লক না হয়)
+        <View style={styles.container}>{ChatContent}</View>
+      ) : (
+        // মোবাইলের জন্য কিবোর্ড হ্যান্ডলিং
+        <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
+          <KeyboardAvoidingView
+            style={styles.container}
+            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+            keyboardVerticalOffset={headerHeight + 10}
+          >
+            {ChatContent}
+          </KeyboardAvoidingView>
+        </TouchableWithoutFeedback>
+      )}
     </SafeAreaView>
   );
 }
@@ -131,7 +152,7 @@ const styles = StyleSheet.create({
   container: { flex: 1 },
   inner: { flex: 1 },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  messagesList: { paddingHorizontal: 16, paddingBottom: 10, paddingTop: 10 },
+  messagesList: { paddingHorizontal: 16, paddingBottom: 20, paddingTop: 10 },
   messageRow: { marginBottom: 10, flexDirection: 'row' },
   myMessageRow: { justifyContent: 'flex-end' },
   theirMessageRow: { justifyContent: 'flex-start' },
@@ -175,8 +196,9 @@ const styles = StyleSheet.create({
     maxHeight: 100,
     fontSize: 16,
     color: '#333',
-    paddingTop: 5,
-    paddingBottom: 5,
+    paddingTop: 8,
+    paddingBottom: 8,
+    outlineStyle: 'none', // ওয়েব ব্রাউজারে ব্লু আউটলাইন সরানোর জন্য
   },
   sendButton: {
     marginLeft: 10,

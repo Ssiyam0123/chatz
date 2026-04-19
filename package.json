@@ -1,0 +1,25 @@
+{
+  "name": "chatz",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+ "scripts": {
+  "dev": "node update-ip.mjs && npx concurrently --raw --kill-others \"npm run dev --prefix backend\" \"cd ChatApp && npx expo start\"",
+  "dev:web": "node update-ip.mjs && npx concurrently --raw --kill-others \"npm run dev --prefix backend\" \"cd ChatApp && npx expo start --web\""
+},
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Ssiyam0123/chatz.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/Ssiyam0123/chatz/issues"
+  },
+  "homepage": "https://github.com/Ssiyam0123/chatz#readme",
+  "devDependencies": {
+    "concurrently": "^9.2.1"
+  }
+}

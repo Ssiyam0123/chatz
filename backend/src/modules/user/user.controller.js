@@ -10,11 +10,11 @@ export const updateProfile = async (req, res) => {
 
     // Handle avatar upload
     if (req.file) {
-      console.log('⏳ Uploading image to Cloudinary...');
+      console.log(' Uploading image to Cloudinary...');
       try {
         const imageUrl = await uploadToCloudinary(req.file.buffer);
         updateData.avatar = imageUrl;
-        console.log('✅ Image uploaded:', imageUrl);
+        console.log(' Image uploaded:', imageUrl);
       } catch (uploadError) {
         return res.status(500).json({ message: 'Image upload failed' });
       }
