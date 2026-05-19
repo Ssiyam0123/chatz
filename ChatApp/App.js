@@ -2,20 +2,21 @@ import React, { useEffect } from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import AppNavigator from './src/navigation/AppNavigator';
 import { useAuthStore } from './src/stores/authStore';
-import { initSocket, disconnectSocket } from './src/utils/socket';
+import useChatStore from './src/stores/chatStore';
 import { ActivityIndicator, View } from 'react-native';
 
 export default function App() {
-  const { token, user, isHydrated } = useAuthStore();
+  const { isHydrated, token, user } = useAuthStore();
+  const initChat = useChatStore(state => state.init);
+  const disconnectChat = useChatStore(state => state.disconnect);
 
   useEffect(() => {
     if (isHydrated && token && user) {
-      initSocket(token);
+      initChat(token, user);
     } else if (isHydrated && !token) {
-      disconnectSocket();
+      disconnectChat();
     }
-    return () => disconnectSocket(); 
-  }, [isHydrated, token, user]);
+  }, [isHydrated, token, user, initChat, disconnectChat]);
 
   if (!isHydrated) {
     return (

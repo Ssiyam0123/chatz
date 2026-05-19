@@ -7,6 +7,8 @@ const userSchema = new mongoose.Schema({
   password: { type: String, required: true, select: false },
   avatar: { type: String, default: "" }, 
   bio: { type: String, default: "" },   
+  publicKey: { type: String, default: null }, // NaCl Box Public Key
+  friends: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
 }, { timestamps: true });
 
 userSchema.pre('save', async function () {

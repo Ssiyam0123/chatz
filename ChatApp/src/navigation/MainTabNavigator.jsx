@@ -1,6 +1,7 @@
 import React from 'react';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Ionicons } from '@expo/vector-icons'; 
+import FeedScreen from '../screens/FeedScreen';
 import ChatListScreen from '../screens/ChatListScreen';
 import PeopleScreen from '../screens/PeopleScreen';
 import ProfileScreen from '../screens/ProfileScreen';
@@ -13,20 +14,27 @@ export default function MainTabNavigator() {
       screenOptions={({ route }) => ({
         tabBarIcon: ({ focused, color, size }) => {
           let iconName;
-          if (route.name === 'Chat') iconName = focused ? 'chatbubbles' : 'chatbubbles-outline';
-          else if (route.name === 'People') iconName = focused ? 'people' : 'people-outline';
-          else if (route.name === 'Profile') iconName = focused ? 'person' : 'person-outline';
-
+          if (route.name === 'Feed') {
+            iconName = focused ? 'home' : 'home-outline';
+          } else if (route.name === 'Friends') {
+            iconName = focused ? 'people' : 'people-outline';
+          } else if (route.name === 'Chats') {
+            iconName = focused ? 'chatbubbles' : 'chatbubbles-outline';
+          } else if (route.name === 'Profile') {
+            iconName = focused ? 'person' : 'person-outline';
+          }
           return <Ionicons name={iconName} size={size} color={color} />;
         },
-        tabBarActiveTintColor: '#007bff',
+        tabBarActiveTintColor: '#1877f2', // Facebook blue
         tabBarInactiveTintColor: 'gray',
-        headerStyle: { elevation: 0, shadowOpacity: 0, borderBottomWidth: 1, borderBottomColor: '#f0f0f0' },
+        headerShown: false,
+        lazy: true,
       })}
     >
-      <Tab.Screen name="Chat" component={ChatListScreen} options={{ title: 'Inbox' }} />
-      <Tab.Screen name="People" component={PeopleScreen} options={{ title: 'Directory' }} />
-      <Tab.Screen name="Profile" component={ProfileScreen} />
+      <Tab.Screen name="Feed" component={FeedScreen} options={{ title: 'News Feed' }} />
+      <Tab.Screen name="Friends" component={PeopleScreen} options={{ title: 'Friends' }} />
+      <Tab.Screen name="Chats" component={ChatListScreen} options={{ title: 'Chats' }} />
+      <Tab.Screen name="Profile" component={ProfileScreen} options={{ title: 'Profile' }} />
     </Tab.Navigator>
   );
 }

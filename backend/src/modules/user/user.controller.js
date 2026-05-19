@@ -51,3 +51,34 @@ export const updateProfile = async (req, res) => {
     res.status(500).json({ status: 'error', message: err.message });
   }
 };
+
+export const registerPublicKey = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { publicKey } = req.body;
+
+    if (!publicKey) {
+      return res.status(400).json({ message: 'Public key is required' });
+    }
+
+    const updatedUser = await User.findByIdAndUpdate(
+      userId,
+      { $set: { publicKey } },
+      { new: true }
+    );
+
+    if (!updatedUser) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    res.status(200).json({
+      status: 'success',
+      data: {
+        publicKey: updatedUser.publicKey
+      }
+    });
+  } catch (err) {
+    console.error('❌ Register Public Key Error:', err.message);
+    res.status(500).json({ status: 'error', message: err.message });
+  }
+};

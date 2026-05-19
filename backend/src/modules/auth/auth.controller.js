@@ -11,7 +11,7 @@ export const register = async (req, res) => {
     res.status(201).json({
       status: 'success',
       token,
-      data: { user: { id: user._id, name: user.name, email: user.email } }
+      data: { user: { id: user._id, name: user.name, email: user.email, avatar: user.avatar, publicKey: user.publicKey } }
     });
   } catch (err) {
     res.status(400).json({ status: 'fail', message: err.message });
@@ -29,7 +29,13 @@ export const login = async (req, res) => {
     res.status(200).json({
       status: 'success',
       token,
-      data: { userId: user._id, name: user.name }
+      data: { 
+        userId: user._id, 
+        name: user.name,
+        email: user.email,
+        avatar: user.avatar,
+        publicKey: user.publicKey
+      }
     });
   } catch (err) {
     res.status(500).json({ status: 'error', message: err.message });

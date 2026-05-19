@@ -8,7 +8,7 @@ import {
   ActivityIndicator,
   Image,
 } from 'react-native';
-import { useChatStore } from '../stores/chatStore';
+import useChatStore from '../stores/chatStore';
 
 export default function ChatListScreen({ navigation }) {
   const { conversations, fetchConversations, isLoadingUsers } = useChatStore();
@@ -18,31 +18,42 @@ export default function ChatListScreen({ navigation }) {
   }, []);
 
   const renderItem = ({ item }) => {
-    const contact = item.userDetails;
-    const avatarUrl = contact?.avatar;
+    // Handle both private (userDetails) and group (name/avatar) conversations
+    const name = item.isGroup ? item.name : item.userDetails?.name || 'Unknown User';
+    const avatarUrl = item.isGroup ? item.avatar : item.userDetails?.avatar;
 
     return (
       <TouchableOpacity
         style={styles.chatItem}
-        onPress={() =>
-          navigation.navigate('ChatDetail', {
-            userId: contact._id,
-            userName: contact.name,
-          })
-        }
+        onPress={() => {
+          if (item.isGroup) {
+            navigation.navigate('GroupChat', {
+              groupId: item._id,
+              groupName: name,
+            });
+          } else {
+            navigation.navigate('ChatDetail', {
+              userId: item._id,
+              userName: name,
+            });
+          }
+        }}
       >
         {/* Avatar with image support */}
         {avatarUrl ? (
           <Image source={{ uri: avatarUrl }} style={styles.avatarImage} />
         ) : (
           <View style={styles.avatarPlaceholder}>
-            <Text style={styles.avatarText}>{contact.name[0].toUpperCase()}</Text>
+            <Text style={styles.avatarText}>{name[0].toUpperCase()}</Text>
           </View>
         )}
 
         <View style={styles.content}>
           <View style={styles.header}>
-            <Text style={styles.name}>{contact.name}</Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+              {item.isGroup && <Text style={styles.groupBadge}>Group</Text>}
+              <Text style={styles.name} numberOfLines={1}>{name}</Text>
+            </View>
             <Text style={styles.time}>
               {item.lastMessageTime
                 ? new Date(item.lastMessageTime).toLocaleTimeString([], {
@@ -113,8 +124,19 @@ const styles = StyleSheet.create({
   },
   avatarText: { color: '#fff', fontSize: 20, fontWeight: 'bold' },
   content: { flex: 1, marginLeft: 15 },
-  header: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 5 },
-  name: { fontSize: 17, fontWeight: 'bold', color: '#000' },
+  header: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 5, alignItems: 'center' },
+  name: { fontSize: 17, fontWeight: 'bold', color: '#000', maxWidth: 180 },
+  groupBadge: {
+    backgroundColor: '#e7f3ff',
+    color: '#007bff',
+    fontSize: 10,
+    fontWeight: 'bold',
+    paddingHorizontal: 5,
+    paddingVertical: 2,
+    borderRadius: 4,
+    marginRight: 5,
+    overflow: 'hidden',
+  },
   time: { fontSize: 12, color: '#999' },
   lastMsg: { fontSize: 14, color: '#666', maxWidth: '90%' },
   empty: { flex: 1, alignItems: 'center', marginTop: 100 },

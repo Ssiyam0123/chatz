@@ -1,0 +1,17 @@
+config:
+  target: "http://localhost:5001"
+  phases:
+    - duration: 60       # 1 minute dhore test cholbe
+      arrivalRate: 5      # Protthi second-e 5 jon naya user asbe
+      name: "Sustained Load"
+  defaults:
+    headers:
+      # Apnar JWT token-ti ekhane boshiye din
+      Authorization: "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjY5ZTQ5MDg1ZjlhZmZiNzg4ZjU3YWM2NiIsImlhdCI6MTc3NjU4Njg4NiwiZXhwIjoxNzc5MTc4ODg2fQ.BrhXmGI6LJGdUNBR84Vycliv1LdSb8oovZUVTaCqIFI"
+      Content-Type: "application/json"
+
+scenarios:
+  - name: "Health Check Test"
+    flow:
+      - get:
+          url: "/health"

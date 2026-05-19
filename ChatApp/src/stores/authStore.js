@@ -19,7 +19,16 @@ export const useAuthStore = create(
         try {
           const response = await api.post("/auth/login", { email, password });
           const { token, data } = response.data;
-          set({ token, user: { id: data.userId, name: data.name, email } });
+          set({ 
+            token, 
+            user: { 
+              id: data.userId, 
+              name: data.name, 
+              email: data.email || email, 
+              avatar: data.avatar, 
+              publicKey: data.publicKey 
+            } 
+          });
         } catch (error) {
           console.error("Login Error:", error.response?.data || error.message);
           throw error;
@@ -40,6 +49,8 @@ export const useAuthStore = create(
               id: data.user.id,
               name: data.user.name,
               email: data.user.email,
+              avatar: data.user.avatar,
+              publicKey: data.user.publicKey,
             },
           });
         } catch (error) {
@@ -53,7 +64,9 @@ export const useAuthStore = create(
       },
 
       updateUser: (updatedUser) => {
-        set({ user: updatedUser });
+        set((state) => ({
+          user: state.user ? { ...state.user, ...updatedUser } : updatedUser
+        }));
       },
     }),
     {

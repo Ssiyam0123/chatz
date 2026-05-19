@@ -4,6 +4,9 @@ import { useAuthStore } from '../stores/authStore';
 import LoginScreen from '../screens/LoginScreen';
 import RegisterScreen from '../screens/RegisterScreen';
 import ChatScreen from '../screens/ChatScreen';
+import GroupListScreen from '../screens/GroupListScreen';
+import CreateGroupScreen from '../screens/CreateGroupScreen';
+import GroupChatScreen from '../screens/GroupChatScreen';
 import MainTabNavigator from './MainTabNavigator';
 
 const Stack = createStackNavigator();
@@ -27,6 +30,21 @@ export default function AppNavigator() {
             name="ChatDetail" 
             component={ChatScreen} 
             options={({ route }) => ({ title: route.params.userName })} 
+          />
+          <Stack.Screen 
+            name="GroupChat" 
+            component={GroupChatScreen} 
+            options={({ route }) => ({ title: route.params.groupName })} 
+          />
+          <Stack.Screen 
+            name="CreateGroup" 
+            component={CreateGroupScreen} 
+            options={{ title: 'Create Group' }} 
+          />
+          <Stack.Screen 
+            name="GroupList" 
+            component={GroupListScreen} 
+            options={{ title: 'My Groups' }} 
           />
         </>
       )}

@@ -8,7 +8,8 @@ export const protect = async (req, res, next) => {
 
   try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    req.user = decoded;
+    const userId = decoded.id || decoded._id;
+    req.user = { ...decoded, id: userId, _id: userId };
     next();
   } catch (err) {
     res.status(401).json({ message: 'Invalid Token' });

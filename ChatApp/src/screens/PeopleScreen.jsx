@@ -11,22 +11,35 @@ import {
   SafeAreaView,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { useChatStore } from '../stores/chatStore';
+import useChatStore from '../stores/chatStore';
 import { useAuthStore } from '../stores/authStore';
 
 export default function PeopleScreen({ navigation }) {
-  const { users, isLoadingUsers, fetchUsers } = useChatStore();
-  const currentUserId = useAuthStore((state) => state.user?.id);
+  const { 
+    users, 
+    isLoadingUsers, 
+    fetchUsers,
+    friends,
+    friendRequests,
+    sendFriendRequest,
+    respondFriendRequest,
+    removeFriend,
+    fetchFriends,
+    fetchFriendRequests
+  } = useChatStore();
+  const currentUserId = useAuthStore((state) => state.user?.id || state.user?._id);
   const [searchQuery, setSearchQuery] = useState('');
   const [refreshing, setRefreshing] = useState(false);
 
   useEffect(() => {
     fetchUsers();
+    fetchFriends();
+    fetchFriendRequests();
   }, []);
 
   const onRefresh = async () => {
     setRefreshing(true);
-    await fetchUsers();
+    await Promise.all([fetchUsers(), fetchFriends(), fetchFriendRequests()]);
     setRefreshing(false);
   };
 
@@ -38,25 +51,98 @@ export default function PeopleScreen({ navigation }) {
     );
   }, [users, searchQuery, currentUserId]);
 
-  const renderUserItem = ({ item }) => (
-    <TouchableOpacity
-      style={styles.userCard}
-      onPress={() => navigation.navigate('ChatDetail', { 
-        userId: item._id, 
-        userName: item.name 
-      })}
-      activeOpacity={0.7}
-    >
-      <View style={styles.avatar}>
-        <Text style={styles.avatarText}>{item.name[0].toUpperCase()}</Text>
+  const getUserFriendship = (userId) => {
+    const isFriend = friends.some((f) => (f._id || f.id) === userId);
+    if (isFriend) return { status: 'friends' };
+
+    const incoming = friendRequests.find(
+      (r) =>
+        (r.sender?._id || r.sender) === userId &&
+        (r.receiver?._id || r.receiver) === currentUserId
+    );
+    if (incoming) return { status: 'received_pending', request: incoming };
+
+    const outgoing = friendRequests.find(
+      (r) =>
+        (r.sender?._id || r.sender) === currentUserId &&
+        (r.receiver?._id || r.receiver) === userId
+    );
+    if (outgoing) return { status: 'sent_pending', request: outgoing };
+
+    return { status: 'none' };
+  };
+
+  const renderUserItem = ({ item }) => {
+    const { status, request } = getUserFriendship(item._id);
+
+    return (
+      <View style={styles.userCard}>
+        <View style={styles.avatar}>
+          <Text style={styles.avatarText}>{item.name[0].toUpperCase()}</Text>
+        </View>
+        <View style={styles.userInfo}>
+          <Text style={styles.userName}>{item.name}</Text>
+          <Text style={styles.userEmail}>{item.email}</Text>
+        </View>
+        
+        <View style={styles.actionContainer}>
+          {status === 'friends' && (
+            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+              <TouchableOpacity
+                style={[styles.actionBtn, styles.chatBtn]}
+                onPress={() => navigation.navigate('ChatDetail', { 
+                  userId: item._id, 
+                  userName: item.name 
+                })}
+              >
+                <Ionicons name="chatbubble-ellipses-outline" size={18} color="#fff" />
+              </TouchableOpacity>
+              
+              <TouchableOpacity
+                style={[styles.actionBtn, styles.unfriendBtn]}
+                onPress={() => removeFriend(item._id)}
+              >
+                <Ionicons name="person-remove-outline" size={18} color="#dc3545" />
+              </TouchableOpacity>
+            </View>
+          )}
+
+          {status === 'sent_pending' && (
+            <View style={[styles.statusBadge, styles.pendingBadge]}>
+              <Text style={styles.pendingText}>Requested</Text>
+            </View>
+          )}
+
+          {status === 'received_pending' && (
+            <View style={{ flexDirection: 'row' }}>
+              <TouchableOpacity
+                style={[styles.actionBtn, styles.acceptBtn]}
+                onPress={() => respondFriendRequest(request._id, 'accepted')}
+              >
+                <Text style={styles.btnText}>Accept</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.actionBtn, styles.declineBtn]}
+                onPress={() => respondFriendRequest(request._id, 'declined')}
+              >
+                <Text style={[styles.btnText, { color: '#dc3545' }]}>Decline</Text>
+              </TouchableOpacity>
+            </View>
+          )}
+
+          {status === 'none' && (
+            <TouchableOpacity
+              style={[styles.actionBtn, styles.addBtn]}
+              onPress={() => sendFriendRequest(item._id)}
+            >
+              <Ionicons name="person-add-outline" size={16} color="#fff" />
+              <Text style={[styles.btnText, { color: '#fff', marginLeft: 4 }]}>Add</Text>
+            </TouchableOpacity>
+          )}
+        </View>
       </View>
-      <View style={styles.userInfo}>
-        <Text style={styles.userName}>{item.name}</Text>
-        <Text style={styles.userEmail}>{item.email}</Text>
-      </View>
-      <Ionicons name="chatbubble-ellipses-outline" size={24} color="#007bff" />
-    </TouchableOpacity>
-  );
+    );
+  };
 
   return (
     <SafeAreaView style={styles.container}>
@@ -152,4 +238,64 @@ const styles = StyleSheet.create({
   separator: { height: 1, backgroundColor: '#f0f0f0', marginLeft: 82 },
   emptyContainer: { flex: 1, alignItems: 'center', marginTop: 100 },
   emptyText: { color: '#999', fontSize: 16, marginTop: 10 },
+  
+  // Friend System Styles
+  actionContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  actionBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 15,
+    marginLeft: 6,
+  },
+  btnText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#fff',
+  },
+  addBtn: {
+    backgroundColor: '#007bff',
+  },
+  acceptBtn: {
+    backgroundColor: '#28a745',
+  },
+  declineBtn: {
+    backgroundColor: '#fff',
+    borderWidth: 1,
+    borderColor: '#dc3545',
+  },
+  chatBtn: {
+    backgroundColor: '#007bff',
+    paddingHorizontal: 8,
+    borderRadius: 8,
+    height: 30,
+    width: 30,
+  },
+  unfriendBtn: {
+    backgroundColor: '#fff',
+    borderWidth: 1,
+    borderColor: '#f5c6cb',
+    paddingHorizontal: 8,
+    borderRadius: 8,
+    height: 30,
+    width: 30,
+  },
+  statusBadge: {
+    paddingVertical: 4,
+    paddingHorizontal: 10,
+    borderRadius: 12,
+  },
+  pendingBadge: {
+    backgroundColor: '#e9ecef',
+  },
+  pendingText: {
+    fontSize: 12,
+    color: '#6c757d',
+    fontWeight: '500',
+  },
 });
