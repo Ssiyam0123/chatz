@@ -158,3 +158,4 @@ sequelize
     console.error('❌ DB Connection Error:', err.message);
     process.exit(1);
   });
+// Trigger nodemon reload for new environment variables

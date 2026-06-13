@@ -80,7 +80,10 @@ export const uploadImage = async (file) => {
 
   try {
     const response = await api.post('/upload/image', formData, {
-      headers: { Accept: 'application/json' },
+      headers: { 
+        'Content-Type': 'multipart/form-data',
+        Accept: 'application/json' 
+      },
     });
     return response.data.data.url;
   } catch (error) {
