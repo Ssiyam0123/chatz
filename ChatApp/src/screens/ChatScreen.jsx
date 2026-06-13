@@ -46,25 +46,34 @@ export default function ChatScreen({ route }) {
   const friendRequests = useChatStore((state) => state.friendRequests);
   const sendFriendRequest = useChatStore((state) => state.sendFriendRequest);
   const respondFriendRequest = useChatStore((state) => state.respondFriendRequest);
+  const removeFriend = useChatStore((state) => state.removeFriend);
 
   const isFriend = friends.some((f) => (f._id || f.id) === partnerId);
   const incomingRequest = friendRequests.find(
     (r) =>
-      (r.sender?._id || r.sender) === partnerId &&
-      (r.receiver?._id || r.receiver) === currentUserId
+      (r.sender?._id || r.sender?.id || r.sender) === partnerId &&
+      (r.receiver?._id || r.receiver?.id || r.receiver) === currentUserId
   );
   const outgoingRequest = friendRequests.find(
     (r) =>
-      (r.sender?._id || r.sender) === currentUserId &&
-      (r.receiver?._id || r.receiver) === partnerId
+      (r.sender?._id || r.sender?.id || r.sender) === currentUserId &&
+      (r.receiver?._id || r.receiver?.id || r.receiver) === partnerId
   );
 
   const isWeb = Platform.OS === 'web';
 
   useEffect(() => {
+    const setActiveChatPartnerId = useChatStore.getState().setActiveChatPartnerId;
+    const clearActiveChatPartnerId = useChatStore.getState().clearActiveChatPartnerId;
+    
+    setActiveChatPartnerId(partnerId);
     if (isFriend) {
       fetchChatHistory(partnerId);
     }
+
+    return () => {
+      clearActiveChatPartnerId();
+    };
   }, [partnerId, isFriend]);
 
   useEffect(() => {
@@ -115,7 +124,7 @@ export default function ChatScreen({ route }) {
   };
 
   const renderMessage = ({ item }) => {
-    const senderId = item.sender?._id || item.sender;
+    const senderId = item.sender?._id || item.sender?.id || item.sender;
     const isMe = senderId === currentUserId || senderId?.toString() === currentUserId;
 
     return (
@@ -155,7 +164,7 @@ export default function ChatScreen({ route }) {
       <FlatList
         ref={flatListRef}
         data={messages}
-        keyExtractor={(item) => item._id || item.clientId || Math.random().toString()}
+        keyExtractor={(item) => item.id || item._id || item.clientId || Math.random().toString()}
         renderItem={renderMessage}
         contentContainerStyle={styles.messagesList}
         onContentSizeChange={() => flatListRef.current?.scrollToEnd({ animated: true })}
@@ -204,16 +213,19 @@ export default function ChatScreen({ route }) {
           {incomingRequest && (
             <TouchableOpacity
               style={[styles.bannerBtn, styles.acceptBannerBtn]}
-              onPress={() => respondFriendRequest(incomingRequest._id, 'accepted')}
+              onPress={() => respondFriendRequest(incomingRequest.id || incomingRequest._id, 'accepted')}
             >
               <Text style={styles.bannerBtnText}>Accept Friend Request</Text>
             </TouchableOpacity>
           )}
 
           {outgoingRequest && (
-            <View style={[styles.bannerBtn, styles.pendingBannerBtn]}>
-              <Text style={[styles.bannerBtnText, { color: '#888' }]}>Request Sent (Pending)</Text>
-            </View>
+            <TouchableOpacity
+              style={[styles.bannerBtn, styles.pendingBannerBtn]}
+              onPress={() => removeFriend(partnerId)}
+            >
+              <Text style={[styles.bannerBtnText, { color: '#dc3545' }]}>Cancel Request</Text>
+            </TouchableOpacity>
           )}
 
           {!incomingRequest && !outgoingRequest && (
@@ -237,7 +249,7 @@ export default function ChatScreen({ route }) {
         <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
           <KeyboardAvoidingView
             style={styles.container}
-            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+            behavior={Platform.OS === 'ios' ? 'padding' : undefined}
             keyboardVerticalOffset={headerHeight + 10}
           >
             {ChatContent}

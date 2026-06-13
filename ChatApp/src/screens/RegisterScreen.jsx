@@ -24,7 +24,7 @@ export default function RegisterScreen({ navigation }) {
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: "#fff" }}>
       <KeyboardAvoidingView
-        behavior={Platform.OS === "ios" ? "padding" : "height"}
+        behavior={Platform.OS === "ios" ? "padding" : undefined}
         style={{ flex: 1 }}
       >
         <ScrollView
@@ -44,6 +44,8 @@ export default function RegisterScreen({ navigation }) {
             style={styles.input}
             placeholder="Email"
             autoCapitalize="none"
+            keyboardType="email-address"
+            autoComplete="email"
             value={email}
             onChangeText={setEmail}
           />

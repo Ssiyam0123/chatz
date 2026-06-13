@@ -45,7 +45,7 @@ export default function UsersScreen({ navigation }) {
   const renderItem = ({ item }) => (
     <TouchableOpacity
       style={styles.userItem}
-      onPress={() => navigation.navigate('Chat', { userId: item._id, userName: item.name })}
+      onPress={() => navigation.navigate('Chat', { userId: item.id || item._id, userName: item.name })}
     >
       <Text style={styles.userName}>{item.name}</Text>
       <Text style={styles.userEmail}>{item.email}</Text>
@@ -63,8 +63,8 @@ export default function UsersScreen({ navigation }) {
   return (
     <View style={styles.container}>
       <FlatList
-        data={users.filter((u) => u._id !== currentUserId)}
-        keyExtractor={(item) => item._id}
+        data={users.filter((u) => (u.id || u._id) !== currentUserId)}
+        keyExtractor={(item) => item.id || item._id}
         renderItem={renderItem}
         ItemSeparatorComponent={() => <View style={styles.separator} />}
         ListEmptyComponent={<Text style={styles.empty}>No other users found</Text>}

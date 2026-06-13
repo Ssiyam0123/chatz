@@ -8,6 +8,7 @@ import GroupListScreen from '../screens/GroupListScreen';
 import CreateGroupScreen from '../screens/CreateGroupScreen';
 import GroupChatScreen from '../screens/GroupChatScreen';
 import MainTabNavigator from './MainTabNavigator';
+import ProfileScreen from '../screens/ProfileScreen';
 
 const Stack = createStackNavigator();
 
@@ -45,6 +46,11 @@ export default function AppNavigator() {
             name="GroupList" 
             component={GroupListScreen} 
             options={{ title: 'My Groups' }} 
+          />
+          <Stack.Screen 
+            name="UserProfile" 
+            component={ProfileScreen} 
+            options={{ title: 'Profile' }} 
           />
         </>
       )}

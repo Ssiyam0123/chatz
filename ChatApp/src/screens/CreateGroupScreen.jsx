@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, TextInput, Button, FlatList, TouchableOpacity, StyleSheet, Alert, ActivityIndicator, Image } from 'react-native';
+import { View, Text, TextInput, Button, FlatList, TouchableOpacity, StyleSheet, Alert, ActivityIndicator, Image, KeyboardAvoidingView, Platform } from 'react-native';
 import { getAllUsers, createGroup, uploadImage } from '../api/api';
 import * as ImagePicker from 'expo-image-picker';
 import { Ionicons } from '@expo/vector-icons';
@@ -93,7 +93,11 @@ export default function CreateGroupScreen({ navigation }) {
   );
 
   return (
-    <View style={styles.container}>
+    <KeyboardAvoidingView 
+      style={styles.container} 
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      keyboardVerticalOffset={Platform.OS === 'ios' ? 80 : 0}
+    >
       <View style={styles.avatarSection}>
         <TouchableOpacity onPress={pickAvatar} style={styles.avatarPicker}>
           {avatar ? (
@@ -136,7 +140,7 @@ export default function CreateGroupScreen({ navigation }) {
           <Text style={styles.createButtonText}>Create Group</Text>
         )}
       </TouchableOpacity>
-    </View>
+    </KeyboardAvoidingView>
   );
 }
 

@@ -5,10 +5,14 @@ import FeedScreen from '../screens/FeedScreen';
 import ChatListScreen from '../screens/ChatListScreen';
 import PeopleScreen from '../screens/PeopleScreen';
 import ProfileScreen from '../screens/ProfileScreen';
+import useChatStore from '../stores/chatStore';
 
 const Tab = createBottomTabNavigator();
 
 export default function MainTabNavigator() {
+  const conversations = useChatStore((state) => state.conversations);
+  const totalUnreadCount = conversations.reduce((acc, conv) => acc + (conv.unreadCount || 0), 0);
+
   return (
     <Tab.Navigator
       screenOptions={({ route }) => ({
@@ -33,7 +37,14 @@ export default function MainTabNavigator() {
     >
       <Tab.Screen name="Feed" component={FeedScreen} options={{ title: 'News Feed' }} />
       <Tab.Screen name="Friends" component={PeopleScreen} options={{ title: 'Friends' }} />
-      <Tab.Screen name="Chats" component={ChatListScreen} options={{ title: 'Chats' }} />
+      <Tab.Screen 
+        name="Chats" 
+        component={ChatListScreen} 
+        options={{ 
+          title: 'Chats',
+          tabBarBadge: totalUnreadCount > 0 ? totalUnreadCount : undefined
+        }} 
+      />
       <Tab.Screen name="Profile" component={ProfileScreen} options={{ title: 'Profile' }} />
     </Tab.Navigator>
   );

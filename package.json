@@ -5,7 +5,10 @@
   "main": "index.js",
  "scripts": {
   "dev": "node update-ip.mjs && npx concurrently --raw --kill-others \"npm run dev --prefix backend\" \"cd ChatApp && npx expo start\"",
-  "dev:web": "node update-ip.mjs && npx concurrently --raw --kill-others \"npm run dev --prefix backend\" \"cd ChatApp && npx expo start --web\""
+  "dev:web": "node update-ip.mjs && npx concurrently --raw --kill-others \"npm run dev --prefix backend\" \"cd ChatApp && npx expo start --web\"",
+  "dev:pg": "node update-ip.mjs --pg && npx concurrently --raw --kill-others \"npm run dev --prefix backend-pg\" \"cd ChatApp && npx expo start\"",
+  "dev:pg:web": "node update-ip.mjs --pg && npx concurrently --raw --kill-others \"npm run dev --prefix backend-pg\" \"cd ChatApp && npx expo start --web\"",
+  "build": "node build-android.mjs"
 },
   "repository": {
     "type": "git",

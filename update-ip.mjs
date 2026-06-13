@@ -22,7 +22,9 @@ const updateEnv = () => {
     const ip = getLocalIP();
     const envPath = path.join(__dirname, 'ChatApp', '.env');
     const envKey = 'EXPO_PUBLIC_API_URL';
-    const envValue = `http://${ip}:5001`;
+    const isPg = process.argv.includes('--pg');
+    const port = isPg ? '5002' : '5001';
+    const envValue = `http://${ip}:${port}`;
 
     try {
         let content = '';

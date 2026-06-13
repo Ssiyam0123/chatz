@@ -99,3 +99,22 @@ export const registerPublicKey = async (req, res) => {
     res.status(500).json({ status: 'error', message: err.message });
   }
 };
+
+export const getUserById = async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const user = await User.findByPk(userId, {
+      attributes: ['id', 'name', 'email', 'avatar', 'bio', 'publicKey', 'createdAt'],
+    });
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+    res.status(200).json({
+      status: 'success',
+      data: { user },
+    });
+  } catch (err) {
+    console.error('❌ Get User By ID Error:', err.message);
+    res.status(500).json({ status: 'error', message: err.message });
+  }
+};

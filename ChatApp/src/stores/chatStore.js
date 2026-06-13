@@ -15,7 +15,7 @@ import {
 const decryptSingleMessage = (msg, currentUserId, ownPrivateKey) => {
   if (!msg || !msg.isEncrypted || !ownPrivateKey) return msg;
   try {
-    const senderId = msg.sender?._id || msg.sender;
+    const senderId = msg.sender?.id || msg.sender?._id || msg.sender;
     const isMeSender = (senderId === currentUserId || senderId?.toString() === currentUserId);
     const partner = isMeSender ? msg.receiver : msg.sender;
     const partnerPublicKey = partner?.publicKey || (typeof partner === 'object' ? partner.publicKey : null);
@@ -145,18 +145,23 @@ const useChatStore = create((set, get) => ({
     socket.on('connect', () => console.log('✅ Socket connected'));
     
     socket.on('receive_message', (message) => {
-      const { user, addPrivateMessage, updateConversation, e2eePrivateKey } = get();
+      const { user, addPrivateMessage, updateConversation, e2eePrivateKey, activeChatPartnerId } = get();
       const currentUserId = user?.id || user?._id;
       
       // Decrypt message if encrypted
       const decrypted = decryptSingleMessage(message, currentUserId, e2eePrivateKey);
-      const partnerId = decrypted.sender._id === currentUserId ? decrypted.receiver : decrypted.sender._id;
+      const senderId = decrypted.sender?.id || decrypted.sender?._id || decrypted.sender;
+      const receiverId = decrypted.receiver?.id || decrypted.receiver?._id || decrypted.receiver;
+      const partnerId = senderId === currentUserId ? receiverId : senderId;
       
       addPrivateMessage(partnerId, decrypted);
+      
+      const isUnread = partnerId !== activeChatPartnerId;
       updateConversation({
         _id: partnerId,
         lastMessage: decrypted.image ? '📷 Image' : decrypted.text,
         lastMessageTime: decrypted.createdAt,
+        isUnread: isUnread,
       });
     });
 
@@ -190,7 +195,7 @@ const useChatStore = create((set, get) => ({
         });
       } else {
         // Handle private confirmation
-        const partnerId = confirmedMessage.receiver;
+        const partnerId = confirmedMessage.receiver?.id || confirmedMessage.receiver?._id || confirmedMessage.receiverId || confirmedMessage.receiver;
         const { user, e2eePrivateKey } = get();
         const currentUserId = user?.id || user?._id;
         
@@ -244,10 +249,10 @@ const useChatStore = create((set, get) => ({
 
     socket.on('new_post', (post) => {
       set((state) => {
-        const exists = state.posts.some(p => p._id === post._id);
+        const exists = state.posts.some(p => (p.id || p._id) === (post.id || post._id));
         if (exists) return {};
         const currentUserId = state.user?.id || state.user?._id;
-        const postUserId = post.user?._id || post.user;
+        const postUserId = post.user?.id || post.user?._id || post.user;
         const isMyPost = postUserId && currentUserId && (postUserId.toString() === currentUserId.toString());
         return {
           posts: [post, ...state.posts],
@@ -258,20 +263,40 @@ const useChatStore = create((set, get) => ({
 
     socket.on('update_post', (updatedPost) => {
       set((state) => ({
-        posts: state.posts.map(p => p._id === updatedPost._id ? updatedPost : p),
-        userPosts: (state.userPosts || []).map(p => p._id === updatedPost._id ? updatedPost : p)
+        posts: state.posts.map(p => (p.id || p._id) === (updatedPost.id || updatedPost._id) ? updatedPost : p),
+        userPosts: (state.userPosts || []).map(p => (p.id || p._id) === (updatedPost.id || updatedPost._id) ? updatedPost : p)
       }));
     });
 
     socket.on('delete_post', (postId) => {
       set((state) => ({
-        posts: state.posts.filter(p => p._id !== postId),
-        userPosts: (state.userPosts || []).filter(p => p._id !== postId)
+        posts: state.posts.filter(p => (p.id || p._id) !== postId),
+        userPosts: (state.userPosts || []).filter(p => (p.id || p._id) !== postId)
       }));
     });
 
     socket.on('new_story', () => {
       get().fetchStories();
+    });
+
+    socket.on('friend_request_received', () => {
+      get().fetchFriendRequests();
+      get().fetchSuggestions();
+      get().fetchUsers(false);
+    });
+
+    socket.on('friend_request_responded', () => {
+      get().fetchFriendRequests();
+      get().fetchFriends();
+      get().fetchSuggestions();
+      get().fetchUsers(false);
+    });
+
+    socket.on('friend_removed', () => {
+      get().fetchFriendRequests();
+      get().fetchFriends();
+      get().fetchSuggestions();
+      get().fetchUsers(false);
     });
     
     set({ _socket: socket });
@@ -285,13 +310,13 @@ const useChatStore = create((set, get) => ({
   },
   
   // ===== Users Actions =====
-  fetchUsers: async () => {
-    set({ isLoadingUsers: true });
+  fetchUsers: async (showLoading = true) => {
+    if (showLoading) set({ isLoadingUsers: true });
     try {
       const res = await api.get('/chat/users');
       set({ users: res.data.data });
     } catch (err) { console.error(err); }
-    finally { set({ isLoadingUsers: false }); }
+    finally { if (showLoading) set({ isLoadingUsers: false }); }
   },
 
   // ===== Generic Conversation Logic =====
@@ -301,7 +326,7 @@ const useChatStore = create((set, get) => ({
 
     if (conv.lastMessageIsEncrypted && e2eePrivateKey) {
       try {
-        const partnerPublicKey = conv.userDetails?.publicKey || users.find(u => u._id === conv._id)?.publicKey;
+        const partnerPublicKey = conv.userDetails?.publicKey || users.find(u => (u._id || u.id) === conv._id)?.publicKey;
         if (partnerPublicKey) {
           const decryptedText = decryptMessage(
             conv.lastMessageCiphertext,
@@ -325,11 +350,21 @@ const useChatStore = create((set, get) => ({
       const existingIdx = state.conversations.findIndex(c => c._id === updatedConv._id);
       let updated = [...state.conversations];
       if (existingIdx !== -1) {
-        updated[existingIdx] = { ...updated[existingIdx], ...updatedConv };
+        const currentUnreadCount = updated[existingIdx].unreadCount || 0;
+        const newUnreadCount = conv.isUnread ? currentUnreadCount + 1 : (conv.unreadCount !== undefined ? conv.unreadCount : currentUnreadCount);
+
+        updated[existingIdx] = { 
+          ...updated[existingIdx], 
+          ...updatedConv,
+          unreadCount: newUnreadCount
+        };
         const [item] = updated.splice(existingIdx, 1);
         updated.unshift(item);
       } else {
-        updated.unshift(updatedConv);
+        updated.unshift({
+          ...updatedConv,
+          unreadCount: conv.isUnread ? 1 : 0
+        });
       }
       return { conversations: updated };
     });
@@ -339,10 +374,11 @@ const useChatStore = create((set, get) => ({
   fetchConversations: async () => {
     try {
       const res = await api.get('/chat/conversations');
-      const { user, e2eePrivateKey } = get();
-      const currentUserId = user?.id || user?._id;
-
+      const { e2eePrivateKey } = get();
       const decryptedConversations = res.data.data.map(conv => {
+        const existing = get().conversations.find(c => c._id === conv._id);
+        const unreadCount = existing ? (existing.unreadCount || 0) : 0;
+        
         if (conv.lastMessageIsEncrypted && e2eePrivateKey) {
           try {
             const partnerPublicKey = conv.userDetails?.publicKey;
@@ -357,11 +393,13 @@ const useChatStore = create((set, get) => ({
                 const parsed = JSON.parse(decryptedText);
                 return {
                   ...conv,
+                  unreadCount,
                   lastMessage: parsed.image ? '📷 Image' : (parsed.text || '')
                 };
               } catch (e) {
                 return {
                   ...conv,
+                  unreadCount,
                   lastMessage: decryptedText
                 };
               }
@@ -370,7 +408,7 @@ const useChatStore = create((set, get) => ({
             console.error('Failed to decrypt conversation list item:', err);
           }
         }
-        return conv;
+        return { ...conv, unreadCount };
       });
 
       set({ conversations: decryptedConversations });
@@ -462,7 +500,14 @@ const useChatStore = create((set, get) => ({
   addPrivateMessage: (partnerId, message) => {
     set((state) => {
       const cache = state.privateMessagesCache[partnerId] || [];
-      if (cache.some(m => m._id === message._id || (m.clientId && m.clientId === message.clientId))) return state;
+      const isDuplicate = cache.some(m => {
+        const mId = m._id || m.id;
+        const msgId = message._id || message.id;
+        const isIdMatch = mId && msgId && mId === msgId;
+        const isClientMatch = m.clientId && message.clientId && m.clientId === message.clientId;
+        return isIdMatch || isClientMatch;
+      });
+      if (isDuplicate) return state;
       return {
         privateMessagesCache: { ...state.privateMessagesCache, [partnerId]: [...cache, message] }
       };
@@ -506,7 +551,14 @@ const useChatStore = create((set, get) => ({
   addGroupMessage: (groupId, message) => {
     set((state) => {
       const cache = state.groupMessagesCache[groupId] || [];
-      if (cache.some(m => m._id === message._id || (m.clientId && m.clientId === message.clientId))) return state;
+      const isDuplicate = cache.some(m => {
+        const mId = m._id || m.id;
+        const msgId = message._id || message.id;
+        const isIdMatch = mId && msgId && mId === msgId;
+        const isClientMatch = m.clientId && message.clientId && m.clientId === message.clientId;
+        return isIdMatch || isClientMatch;
+      });
+      if (isDuplicate) return state;
       return {
         groupMessagesCache: { ...state.groupMessagesCache, [groupId]: [...cache, message] }
       };
@@ -654,37 +706,121 @@ const useChatStore = create((set, get) => ({
   },
 
   sendFriendRequest: async (receiverId) => {
+    const { user, friendRequests, suggestions } = get();
+    const currentUserId = user?.id || user?._id;
+    if (!currentUserId) return;
+
+    // Backup current state for rollback
+    const originalRequests = [...friendRequests];
+    const originalSuggestions = suggestions ? [...suggestions] : [];
+
+    // Optimistically add to friendRequests
+    const tempRequest = {
+      id: `temp-${Date.now()}`,
+      senderId: currentUserId,
+      receiverId: receiverId,
+      status: 'pending',
+      sender: user,
+      receiver: { id: receiverId, name: 'User', avatar: '', bio: '' }
+    };
+
+    set({
+      friendRequests: [...friendRequests, tempRequest],
+      // Optimistically remove from suggestions
+      suggestions: suggestions ? suggestions.filter(s => (s.id || s._id) !== receiverId) : []
+    });
+
     try {
       await api.post('/friends/request', { receiverId });
-      // Refresh requests and users lists
+      // Refresh definitive data
       get().fetchFriendRequests();
-      get().fetchUsers();
+      get().fetchUsers(false);
+      get().fetchSuggestions();
     } catch (err) {
       console.error('Error sending friend request:', err.response?.data || err.message);
+      // Rollback on failure
+      set({
+        friendRequests: originalRequests,
+        suggestions: originalSuggestions
+      });
       Alert.alert('Friend Request Error', err.response?.data?.message || err.message);
     }
   },
 
   respondFriendRequest: async (requestId, status) => {
+    const { friendRequests, friends } = get();
+    const originalRequests = [...friendRequests];
+    const originalFriends = [...friends];
+
+    const targetRequest = friendRequests.find(r => (r.id || r._id) === requestId);
+
+    if (status === 'accepted' && targetRequest) {
+      // Optimistically add to friends list (the other user is either sender or receiver)
+      const otherUser = (targetRequest.sender?.id || targetRequest.sender?._id) === get().user?.id 
+        ? targetRequest.receiver 
+        : targetRequest.sender;
+
+      if (otherUser) {
+        set({
+          friends: [...friends, otherUser]
+        });
+      }
+    }
+
+    // Optimistically remove/update request
+    set({
+      friendRequests: friendRequests.filter(r => (r.id || r._id) !== requestId)
+    });
+
     try {
       await api.put(`/friends/request/${requestId}`, { status });
-      // Refresh friend lists and users lists
+      // Refresh definitive data
       get().fetchFriendRequests();
       get().fetchFriends();
-      get().fetchUsers();
+      get().fetchUsers(false);
+      get().fetchSuggestions();
     } catch (err) {
       console.error('Error responding to friend request:', err.response?.data || err.message);
+      // Rollback on failure
+      set({
+        friendRequests: originalRequests,
+        friends: originalFriends
+      });
       Alert.alert('Response Error', err.response?.data?.message || err.message);
     }
   },
 
   removeFriend: async (friendId) => {
+    const { friendRequests, friends, suggestions } = get();
+    
+    // Backup current state for rollback
+    const originalRequests = [...friendRequests];
+    const originalFriends = [...friends];
+    const originalSuggestions = suggestions ? [...suggestions] : [];
+
+    // Optimistically remove from requests and friends
+    set({
+      friendRequests: friendRequests.filter(
+        r => !((r.senderId === friendId || (r.sender?.id || r.sender?._id) === friendId) || 
+               (r.receiverId === friendId || (r.receiver?.id || r.receiver?._id) === friendId))
+      ),
+      friends: friends.filter(f => (f.id || f._id) !== friendId)
+    });
+
     try {
       await api.delete(`/friends/${friendId}`);
+      // Refresh definitive data
       get().fetchFriends();
-      get().fetchUsers();
+      get().fetchUsers(false);
+      get().fetchSuggestions();
     } catch (err) {
       console.error('Error removing friend:', err.response?.data || err.message);
+      // Rollback on failure
+      set({
+        friendRequests: originalRequests,
+        friends: originalFriends,
+        suggestions: originalSuggestions
+      });
       Alert.alert('Remove Friend Error', err.response?.data?.message || err.message);
     }
   },
@@ -738,8 +874,8 @@ const useChatStore = create((set, get) => ({
     try {
       await api.delete(`/posts/${postId}`);
       set((state) => ({
-        posts: state.posts.filter((p) => p._id !== postId),
-        userPosts: (state.userPosts || []).filter((p) => p._id !== postId)
+        posts: state.posts.filter((p) => (p.id || p._id) !== postId),
+        userPosts: (state.userPosts || []).filter((p) => (p.id || p._id) !== postId)
       }));
     } catch (err) {
       console.error('Error deleting post:', err);
@@ -773,8 +909,8 @@ const useChatStore = create((set, get) => ({
       const updatedPost = res.data.data;
       if (updatedPost) {
         set((state) => ({
-          posts: state.posts.map(p => p._id === updatedPost._id ? updatedPost : p),
-          userPosts: (state.userPosts || []).map(p => p._id === updatedPost._id ? updatedPost : p)
+          posts: state.posts.map(p => (p.id || p._id) === (updatedPost.id || updatedPost._id) ? updatedPost : p),
+          userPosts: (state.userPosts || []).map(p => (p.id || p._id) === (updatedPost.id || updatedPost._id) ? updatedPost : p)
         }));
       }
       return updatedPost;
@@ -785,18 +921,78 @@ const useChatStore = create((set, get) => ({
   },
 
   toggleLikePost: async (postId, type = 'like') => {
+    const { user, posts, userPosts } = get();
+    const currentUserId = user?.id || user?._id;
+    if (!currentUserId) return;
+
+    // Backup current state for rollback
+    const originalPosts = [...posts];
+    const originalUserPosts = userPosts ? [...userPosts] : null;
+
+    const updatePostReactionsOptimistically = (p) => {
+      if ((p.id || p._id) !== postId) return p;
+
+      const reactions = p.reactions ? [...p.reactions] : [];
+      const existingReactionIndex = reactions.findIndex(
+        (r) => (r.user?.id || r.user?._id || r.userId || r.user) === currentUserId
+      );
+
+      if (existingReactionIndex !== -1) {
+        const existingReaction = reactions[existingReactionIndex];
+        if (existingReaction.type === type) {
+          // Toggle off
+          reactions.splice(existingReactionIndex, 1);
+        } else {
+          // Change type
+          reactions[existingReactionIndex] = {
+            ...existingReaction,
+            type,
+          };
+        }
+      } else {
+        // Add new reaction
+        reactions.push({
+          id: `temp-${Date.now()}`,
+          type,
+          userId: currentUserId,
+          user: {
+            id: currentUserId,
+            name: user.name || 'Me',
+            avatar: user.avatar || '',
+          },
+        });
+      }
+
+      return {
+        ...p,
+        reactions,
+      };
+    };
+
+    // Apply optimistic update
+    set({
+      posts: posts.map(updatePostReactionsOptimistically),
+      userPosts: userPosts ? userPosts.map(updatePostReactionsOptimistically) : null,
+    });
+
     try {
       const res = await api.post(`/posts/${postId}/like`, { type });
       const updatedPost = res.data.data;
       if (updatedPost) {
+        // Update with the definitive server response
         set((state) => ({
-          posts: state.posts.map(p => p._id === updatedPost._id ? updatedPost : p),
-          userPosts: (state.userPosts || []).map(p => p._id === updatedPost._id ? updatedPost : p)
+          posts: state.posts.map(p => (p.id || p._id) === (updatedPost.id || updatedPost._id) ? updatedPost : p),
+          userPosts: (state.userPosts || []).map(p => (p.id || p._id) === (updatedPost.id || updatedPost._id) ? updatedPost : p)
         }));
       }
       return res.data;
     } catch (err) {
       console.error('Error liking/reacting to post:', err);
+      // Rollback to original state on failure
+      set({
+        posts: originalPosts,
+        userPosts: originalUserPosts,
+      });
       throw err;
     }
   },
@@ -807,8 +1003,8 @@ const useChatStore = create((set, get) => ({
       const updatedPost = res.data.data;
       if (updatedPost) {
         set((state) => ({
-          posts: state.posts.map(p => p._id === updatedPost._id ? updatedPost : p),
-          userPosts: (state.userPosts || []).map(p => p._id === updatedPost._id ? updatedPost : p)
+          posts: state.posts.map(p => (p.id || p._id) === (updatedPost.id || updatedPost._id) ? updatedPost : p),
+          userPosts: (state.userPosts || []).map(p => (p.id || p._id) === (updatedPost.id || updatedPost._id) ? updatedPost : p)
         }));
       }
       return updatedPost;
@@ -824,8 +1020,8 @@ const useChatStore = create((set, get) => ({
       const updatedPost = res.data.data;
       if (updatedPost) {
         set((state) => ({
-          posts: state.posts.map(p => p._id === updatedPost._id ? updatedPost : p),
-          userPosts: (state.userPosts || []).map(p => p._id === updatedPost._id ? updatedPost : p)
+          posts: state.posts.map(p => (p.id || p._id) === (updatedPost.id || updatedPost._id) ? updatedPost : p),
+          userPosts: (state.userPosts || []).map(p => (p.id || p._id) === (updatedPost.id || updatedPost._id) ? updatedPost : p)
         }));
       }
       return res.data;
@@ -922,6 +1118,22 @@ const useChatStore = create((set, get) => ({
       userPosts: [],
       stories: []
     });
+  },
+
+  setActiveChatPartnerId: (partnerId) => {
+    set((state) => {
+      const updated = state.conversations.map(c => 
+        (c._id === partnerId || c.id === partnerId) ? { ...c, unreadCount: 0 } : c
+      );
+      return {
+        activeChatPartnerId: partnerId,
+        conversations: updated
+      };
+    });
+  },
+
+  clearActiveChatPartnerId: () => {
+    set({ activeChatPartnerId: null });
   },
 }));
 

@@ -247,3 +247,5 @@ export const initSocket = (server) => {
     });
   });
 };
+
+export { userSockets };

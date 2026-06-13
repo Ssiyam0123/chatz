@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useMemo } from 'react';
+import React, { useEffect, useState, useMemo, useCallback } from 'react';
 import {
   View,
   Text,
@@ -9,8 +9,13 @@ import {
   ActivityIndicator,
   RefreshControl,
   SafeAreaView,
+  Platform,
+  StatusBar,
+  ScrollView,
+  Image,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useFocusEffect } from '@react-navigation/native';
 import useChatStore from '../stores/chatStore';
 import { useAuthStore } from '../stores/authStore';
 
@@ -21,77 +26,121 @@ export default function PeopleScreen({ navigation }) {
     fetchUsers,
     friends,
     friendRequests,
+    suggestions,
     sendFriendRequest,
     respondFriendRequest,
     removeFriend,
     fetchFriends,
-    fetchFriendRequests
+    fetchFriendRequests,
+    fetchSuggestions,
   } = useChatStore();
+
   const currentUserId = useAuthStore((state) => state.user?.id || state.user?._id);
+  const [activeTab, setActiveTab] = useState('friends'); // 'friends' | 'requests' | 'sent' | 'suggestions'
   const [searchQuery, setSearchQuery] = useState('');
   const [refreshing, setRefreshing] = useState(false);
 
-  useEffect(() => {
-    fetchUsers();
-    fetchFriends();
-    fetchFriendRequests();
-  }, []);
+  useFocusEffect(
+    useCallback(() => {
+      fetchUsers();
+      fetchFriends();
+      fetchFriendRequests();
+      fetchSuggestions();
+    }, [])
+  );
 
   const onRefresh = async () => {
     setRefreshing(true);
-    await Promise.all([fetchUsers(), fetchFriends(), fetchFriendRequests()]);
+    await Promise.all([
+      fetchUsers(), 
+      fetchFriends(), 
+      fetchFriendRequests(),
+      fetchSuggestions()
+    ]);
     setRefreshing(false);
   };
 
-  const filteredUsers = useMemo(() => {
-    return users.filter(
-      (u) =>
-        u._id !== currentUserId &&
-        u.name.toLowerCase().includes(searchQuery.toLowerCase())
+  // Compute display list based on active tab and search query
+  const displayData = useMemo(() => {
+    let list = [];
+    if (activeTab === 'friends') {
+      list = friends.map(f => ({
+        id: f.id || f._id,
+        name: f.name,
+        email: f.email,
+        avatar: f.avatar,
+        bio: f.bio,
+        type: 'friend'
+      }));
+    } else if (activeTab === 'requests') {
+      list = friendRequests
+        .filter(r => (r.receiver?._id || r.receiver?.id || r.receiver) === currentUserId && r.status === 'pending')
+        .map(r => ({
+          id: r.sender?.id || r.sender?._id,
+          name: r.sender?.name || 'User',
+          email: r.sender?.email,
+          avatar: r.sender?.avatar,
+          bio: r.sender?.bio,
+          requestId: r.id || r._id,
+          type: 'incoming'
+        }));
+    } else if (activeTab === 'sent') {
+      list = friendRequests
+        .filter(r => (r.sender?._id || r.sender?.id || r.sender) === currentUserId && r.status === 'pending')
+        .map(r => ({
+          id: r.receiver?.id || r.receiver?._id,
+          name: r.receiver?.name || 'User',
+          email: r.receiver?.email,
+          avatar: r.receiver?.avatar,
+          bio: r.receiver?.bio,
+          requestId: r.id || r._id,
+          type: 'outgoing'
+        }));
+    } else if (activeTab === 'suggestions') {
+      list = suggestions.map(s => ({
+        id: s.id || s._id,
+        name: s.name,
+        email: s.email,
+        avatar: s.avatar,
+        bio: s.bio,
+        type: 'suggestion'
+      }));
+    }
+
+    return list.filter(item => 
+      (item.name || '').toLowerCase().includes(searchQuery.toLowerCase())
     );
-  }, [users, searchQuery, currentUserId]);
-
-  const getUserFriendship = (userId) => {
-    const isFriend = friends.some((f) => (f._id || f.id) === userId);
-    if (isFriend) return { status: 'friends' };
-
-    const incoming = friendRequests.find(
-      (r) =>
-        (r.sender?._id || r.sender) === userId &&
-        (r.receiver?._id || r.receiver) === currentUserId
-    );
-    if (incoming) return { status: 'received_pending', request: incoming };
-
-    const outgoing = friendRequests.find(
-      (r) =>
-        (r.sender?._id || r.sender) === currentUserId &&
-        (r.receiver?._id || r.receiver) === userId
-    );
-    if (outgoing) return { status: 'sent_pending', request: outgoing };
-
-    return { status: 'none' };
-  };
+  }, [activeTab, friends, friendRequests, suggestions, searchQuery, currentUserId]);
 
   const renderUserItem = ({ item }) => {
-    const { status, request } = getUserFriendship(item._id);
-
     return (
       <View style={styles.userCard}>
-        <View style={styles.avatar}>
-          <Text style={styles.avatarText}>{item.name[0].toUpperCase()}</Text>
-        </View>
-        <View style={styles.userInfo}>
-          <Text style={styles.userName}>{item.name}</Text>
-          <Text style={styles.userEmail}>{item.email}</Text>
-        </View>
+        <TouchableOpacity
+          style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}
+          onPress={() => navigation.navigate('UserProfile', { userId: item.id })}
+        >
+          {item.avatar ? (
+            <Image source={{ uri: item.avatar }} style={styles.avatarImage} />
+          ) : (
+            <View style={styles.avatar}>
+              <Text style={styles.avatarText}>{(item.name || '?')[0].toUpperCase()}</Text>
+            </View>
+          )}
+          <View style={styles.userInfo}>
+            <Text style={styles.userName}>{item.name}</Text>
+            <Text style={styles.userBio} numberOfLines={1}>
+              {item.bio || item.email || 'No bio yet'}
+            </Text>
+          </View>
+        </TouchableOpacity>
         
         <View style={styles.actionContainer}>
-          {status === 'friends' && (
+          {item.type === 'friend' && (
             <View style={{ flexDirection: 'row', alignItems: 'center' }}>
               <TouchableOpacity
                 style={[styles.actionBtn, styles.chatBtn]}
                 onPress={() => navigation.navigate('ChatDetail', { 
-                  userId: item._id, 
+                  userId: item.id, 
                   userName: item.name 
                 })}
               >
@@ -100,40 +149,48 @@ export default function PeopleScreen({ navigation }) {
               
               <TouchableOpacity
                 style={[styles.actionBtn, styles.unfriendBtn]}
-                onPress={() => removeFriend(item._id)}
+                onPress={() => removeFriend(item.id)}
               >
                 <Ionicons name="person-remove-outline" size={18} color="#dc3545" />
               </TouchableOpacity>
             </View>
           )}
 
-          {status === 'sent_pending' && (
-            <View style={[styles.statusBadge, styles.pendingBadge]}>
-              <Text style={styles.pendingText}>Requested</Text>
+          {item.type === 'outgoing' && (
+            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+              <View style={[styles.statusBadge, styles.pendingBadge]}>
+                <Text style={styles.pendingText}>Requested</Text>
+              </View>
+              <TouchableOpacity
+                style={[styles.actionBtn, styles.declineBtn]}
+                onPress={() => removeFriend(item.id)}
+              >
+                <Text style={[styles.btnText, { color: '#dc3545' }]}>Cancel</Text>
+              </TouchableOpacity>
             </View>
           )}
 
-          {status === 'received_pending' && (
+          {item.type === 'incoming' && (
             <View style={{ flexDirection: 'row' }}>
               <TouchableOpacity
                 style={[styles.actionBtn, styles.acceptBtn]}
-                onPress={() => respondFriendRequest(request._id, 'accepted')}
+                onPress={() => respondFriendRequest(item.requestId, 'accepted')}
               >
                 <Text style={styles.btnText}>Accept</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 style={[styles.actionBtn, styles.declineBtn]}
-                onPress={() => respondFriendRequest(request._id, 'declined')}
+                onPress={() => respondFriendRequest(item.requestId, 'declined')}
               >
                 <Text style={[styles.btnText, { color: '#dc3545' }]}>Decline</Text>
               </TouchableOpacity>
             </View>
           )}
 
-          {status === 'none' && (
+          {item.type === 'suggestion' && (
             <TouchableOpacity
               style={[styles.actionBtn, styles.addBtn]}
-              onPress={() => sendFriendRequest(item._id)}
+              onPress={() => sendFriendRequest(item.id)}
             >
               <Ionicons name="person-add-outline" size={16} color="#fff" />
               <Text style={[styles.btnText, { color: '#fff', marginLeft: 4 }]}>Add</Text>
@@ -144,8 +201,20 @@ export default function PeopleScreen({ navigation }) {
     );
   };
 
+  const getEmptyMessage = () => {
+    if (searchQuery) return 'No users match your search';
+    switch (activeTab) {
+      case 'friends': return 'You have no friends added yet.';
+      case 'requests': return 'No incoming friend requests.';
+      case 'sent': return 'No pending outgoing friend requests.';
+      case 'suggestions': return 'No suggestions found at this moment.';
+      default: return 'No users found';
+    }
+  };
+
   return (
     <SafeAreaView style={styles.container}>
+      {/* Search Bar */}
       <View style={styles.searchContainer}>
         <View style={styles.searchBar}>
           <Ionicons name="search" size={20} color="#999" />
@@ -164,14 +233,43 @@ export default function PeopleScreen({ navigation }) {
         </View>
       </View>
 
+      {/* Segmented Top Tab Bar */}
+      <View style={styles.tabContainer}>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.tabScroll}>
+          {[
+            { id: 'friends', label: `Friends (${friends.length})` },
+            { 
+              id: 'requests', 
+              label: `Requests (${friendRequests.filter(r => (r.receiver?._id || r.receiver?.id || r.receiver) === currentUserId && r.status === 'pending').length})` 
+            },
+            { 
+              id: 'sent', 
+              label: `Sent (${friendRequests.filter(r => (r.sender?._id || r.sender?.id || r.sender) === currentUserId && r.status === 'pending').length})` 
+            },
+            { id: 'suggestions', label: `Suggestions (${suggestions.length})` },
+          ].map((tab) => (
+            <TouchableOpacity
+              key={tab.id}
+              style={[styles.tabItem, activeTab === tab.id && styles.activeTabItem]}
+              onPress={() => setActiveTab(tab.id)}
+            >
+              <Text style={[styles.tabText, activeTab === tab.id && styles.activeTabText]}>
+                {tab.label}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
+      </View>
+
+      {/* Main List */}
       {isLoadingUsers && !refreshing ? (
         <View style={styles.center}>
           <ActivityIndicator size="large" color="#007bff" />
         </View>
       ) : (
         <FlatList
-          data={filteredUsers}
-          keyExtractor={(item) => item._id}
+          data={displayData}
+          keyExtractor={(item) => item.id}
           renderItem={renderUserItem}
           contentContainerStyle={styles.listContent}
           ItemSeparatorComponent={() => <View style={styles.separator} />}
@@ -181,9 +279,7 @@ export default function PeopleScreen({ navigation }) {
           ListEmptyComponent={
             <View style={styles.emptyContainer}>
               <Ionicons name="people-outline" size={64} color="#ddd" />
-              <Text style={styles.emptyText}>
-                {searchQuery ? "No users match your search" : "No users found"}
-              </Text>
+              <Text style={styles.emptyText}>{getEmptyMessage()}</Text>
             </View>
           }
         />
@@ -193,7 +289,11 @@ export default function PeopleScreen({ navigation }) {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#fff' },
+  container: {
+    flex: 1,
+    backgroundColor: '#fff',
+    paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight : 0,
+  },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   searchContainer: {
     paddingHorizontal: 16,
@@ -215,7 +315,36 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#000',
   },
-  listContent: { paddingBottom: 20 },
+  tabContainer: {
+    borderBottomWidth: 1,
+    borderBottomColor: '#f0f0f0',
+    backgroundColor: '#fff',
+  },
+  tabScroll: {
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+  },
+  tabItem: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
+    backgroundColor: '#f0f2f5',
+    marginRight: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  activeTabItem: {
+    backgroundColor: '#007bff',
+  },
+  tabText: {
+    fontSize: 13,
+    fontWeight: 'bold',
+    color: '#65676b',
+  },
+  activeTabText: {
+    color: '#fff',
+  },
+  listContent: { paddingBottom: 40 },
   userCard: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -231,10 +360,17 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginRight: 16,
   },
+  avatarImage: {
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    marginRight: 16,
+    backgroundColor: '#eee',
+  },
   avatarText: { color: '#007bff', fontSize: 20, fontWeight: 'bold' },
   userInfo: { flex: 1 },
   userName: { fontSize: 17, fontWeight: '600', color: '#1a1a1a' },
-  userEmail: { fontSize: 14, color: '#777', marginTop: 2 },
+  userBio: { fontSize: 14, color: '#777', marginTop: 2, marginRight: 10 },
   separator: { height: 1, backgroundColor: '#f0f0f0', marginLeft: 82 },
   emptyContainer: { flex: 1, alignItems: 'center', marginTop: 100 },
   emptyText: { color: '#999', fontSize: 16, marginTop: 10 },

@@ -15,12 +15,14 @@ import {
   SafeAreaView,
   KeyboardAvoidingView,
   Platform,
-  RefreshControl
+  RefreshControl,
+  StatusBar
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import { useAuthStore } from '../stores/authStore';
 import useChatStore from '../stores/chatStore';
+import { useFocusEffect } from '@react-navigation/native';
 import { api } from '../api/api';
 
 const { width } = Dimensions.get('window');
@@ -35,11 +37,12 @@ const REACTION_TYPES = [
   { type: 'angry', label: 'Angry', emoji: '😡', color: '#dd2e44' },
 ];
 
-export default function ProfileScreen({ navigation }) {
+export default function ProfileScreen({ route, navigation }) {
   const { user, updateUser, logout } = useAuthStore();
   const {
     userPosts,
     friends,
+    friendRequests,
     groups,
     fetchUserPosts,
     editPost,
@@ -48,7 +51,12 @@ export default function ProfileScreen({ navigation }) {
     addComment,
     sharePost,
     isLoadingUserPosts,
-    hasMoreUserPosts
+    hasMoreUserPosts,
+    fetchFriends,
+    fetchFriendRequests,
+    sendFriendRequest,
+    respondFriendRequest,
+    removeFriend
   } = useChatStore();
 
   const [refreshing, setRefreshing] = useState(false);
@@ -72,38 +80,101 @@ export default function ProfileScreen({ navigation }) {
   const [activeReactionPickerPostId, setActiveReactionPickerPostId] = useState(null);
 
   const currentUserId = user?.id || user?._id;
+  const routeParamsUserId = route?.params?.userId;
+  const targetUserId = routeParamsUserId || currentUserId;
+  const isOwnProfile = targetUserId === currentUserId;
+
+  const [displayedUser, setDisplayedUser] = useState(isOwnProfile ? user : null);
+  const [isLoadingProfile, setIsLoadingProfile] = useState(!isOwnProfile);
 
   // Pagination States
   const [page, setPage] = useState(1);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
 
-  // Load user posts on mount
+  // Fetch target user profile from server
   useEffect(() => {
-    if (currentUserId) {
-      fetchUserPosts(currentUserId, 1, 15);
-      setPage(1);
+    setIsLoadingProfile(true);
+    api.get(`/user/profile/${targetUserId}`)
+      .then(res => {
+        if (res.data.status === 'success') {
+          const fetchedUser = res.data.data.user;
+          setDisplayedUser(fetchedUser);
+          if (isOwnProfile) {
+            updateUser(fetchedUser);
+          }
+        }
+      })
+      .catch(err => {
+        console.error('Error fetching user profile:', err);
+        if (isOwnProfile) {
+          setDisplayedUser(user);
+        }
+      })
+      .finally(() => setIsLoadingProfile(false));
+  }, [targetUserId]);
+
+  // Sync displayedUser with local user state when store updates (e.g. after edit)
+  useEffect(() => {
+    if (isOwnProfile) {
+      setDisplayedUser(user);
     }
-  }, [currentUserId]);
+  }, [user, isOwnProfile]);
+
+  // Load user posts and check friends/requests on focus
+  useFocusEffect(
+    useCallback(() => {
+      if (targetUserId) {
+        fetchUserPosts(targetUserId, 1, 15);
+        setPage(1);
+      }
+      fetchFriends();
+      fetchFriendRequests();
+    }, [targetUserId])
+  );
+
+  const getUserFriendship = () => {
+    if (isOwnProfile || !targetUserId) return { status: 'none', request: null };
+    const isFriend = friends.some((f) => (f._id || f.id) === targetUserId);
+    if (isFriend) return { status: 'friends', request: null };
+
+    const incoming = friendRequests.find(
+      (r) =>
+        (r.sender?._id || r.sender?.id || r.sender) === targetUserId &&
+        (r.receiver?._id || r.receiver?.id || r.receiver) === currentUserId
+    );
+    if (incoming) return { status: 'received_pending', request: incoming };
+
+    const outgoing = friendRequests.find(
+      (r) =>
+        (r.sender?._id || r.sender?.id || r.sender) === currentUserId &&
+        (r.receiver?._id || r.receiver?.id || r.receiver) === targetUserId
+    );
+    if (outgoing) return { status: 'sent_pending', request: outgoing };
+
+    return { status: 'none', request: null };
+  };
+
+  const { status: friendshipStatus, request: friendshipRequest } = getUserFriendship();
 
   const handleRefresh = useCallback(async () => {
     setRefreshing(true);
     setPage(1);
-    if (currentUserId) {
-      await fetchUserPosts(currentUserId, 1, 15);
+    if (targetUserId) {
+      await fetchUserPosts(targetUserId, 1, 15);
     }
     setRefreshing(false);
-  }, [currentUserId]);
+  }, [targetUserId]);
 
   const handleLoadMore = useCallback(async () => {
-    if (isLoadingMore || !hasMoreUserPosts || isLoadingUserPosts || !currentUserId) return;
+    if (isLoadingMore || !hasMoreUserPosts || isLoadingUserPosts || !targetUserId) return;
     setIsLoadingMore(true);
     const nextPage = page + 1;
-    const newPosts = await fetchUserPosts(currentUserId, nextPage, 15);
+    const newPosts = await fetchUserPosts(targetUserId, nextPage, 15);
     if (newPosts && newPosts.length > 0) {
       setPage(nextPage);
     }
     setIsLoadingMore(false);
-  }, [page, isLoadingMore, hasMoreUserPosts, isLoadingUserPosts, currentUserId]);
+  }, [page, isLoadingMore, hasMoreUserPosts, isLoadingUserPosts, targetUserId]);
 
   const renderFooter = useCallback(() => {
     if (!isLoadingMore) return null;
@@ -321,12 +392,13 @@ export default function ProfileScreen({ navigation }) {
   };
 
   const renderPostItem = ({ item }) => {
+    const postId = item.id || item._id;
     const postUser = item.user || {};
     const commentsList = item.comments || [];
-    const isCommentsVisible = !!visibleComments[item._id];
+    const isCommentsVisible = !!visibleComments[postId];
 
     // Find active reaction
-    const userReaction = item.reactions?.find(r => (r.user?._id || r.user) === currentUserId);
+    const userReaction = item.reactions?.find(r => (r.user?._id || r.user?.id || r.user) === currentUserId);
     const activeReaction = REACTION_TYPES.find(rt => rt.type === userReaction?.type);
 
     // Compute unique emojis
@@ -356,14 +428,16 @@ export default function ProfileScreen({ navigation }) {
               {new Date(item.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
             </Text>
           </View>
-          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-            <TouchableOpacity onPress={() => handleStartEditPost(item)} style={{ padding: 6, marginRight: 8 }}>
-              <Ionicons name="create-outline" size={20} color="#1877f2" />
-            </TouchableOpacity>
-            <TouchableOpacity onPress={() => handleDeletePost(item._id)} style={{ padding: 6 }}>
-              <Ionicons name="trash-outline" size={20} color="#e0245e" />
-            </TouchableOpacity>
-          </View>
+          {isOwnProfile && (
+            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+              <TouchableOpacity onPress={() => handleStartEditPost(item)} style={{ padding: 6, marginRight: 8 }}>
+                <Ionicons name="create-outline" size={20} color="#1877f2" />
+              </TouchableOpacity>
+              <TouchableOpacity onPress={() => handleDeletePost(postId)} style={{ padding: 6 }}>
+                <Ionicons name="trash-outline" size={20} color="#e0245e" />
+              </TouchableOpacity>
+            </View>
+          )}
         </View>
 
         {/* Post Content */}
@@ -432,8 +506,8 @@ export default function ProfileScreen({ navigation }) {
         <View style={styles.postActionsRow}>
           <TouchableOpacity
             style={styles.actionButton}
-            onPress={() => handlePostLike(item._id)}
-            onLongPress={() => setActiveReactionPickerPostId(item._id)}
+            onPress={() => handlePostLike(postId)}
+            onLongPress={() => setActiveReactionPickerPostId(postId)}
           >
             {activeReaction ? (
               <Text style={styles.actionButtonTextActive}>
@@ -449,7 +523,7 @@ export default function ProfileScreen({ navigation }) {
 
           <TouchableOpacity
             style={styles.actionButton}
-            onPress={() => setVisibleComments(prev => ({ ...prev, [item._id]: !prev[item._id] }))}
+            onPress={() => setVisibleComments(prev => ({ ...prev, [postId]: !prev[postId] }))}
           >
             <View style={styles.actionIconRow}>
               <Ionicons name="chatbubble-outline" size={20} color="#65676b" />
@@ -457,7 +531,7 @@ export default function ProfileScreen({ navigation }) {
             </View>
           </TouchableOpacity>
 
-          <TouchableOpacity style={styles.actionButton} onPress={() => handleSharePost(item._id)}>
+          <TouchableOpacity style={styles.actionButton} onPress={() => handleSharePost(postId)}>
             <View style={styles.actionIconRow}>
               <Ionicons name="share-social-outline" size={20} color="#65676b" />
               <Text style={styles.actionButtonText}>Share</Text>
@@ -466,13 +540,13 @@ export default function ProfileScreen({ navigation }) {
         </View>
 
         {/* Emoji Selector Overlay */}
-        {activeReactionPickerPostId === item._id && (
+        {activeReactionPickerPostId === postId && (
           <View style={styles.reactionPickerContainer}>
             {REACTION_TYPES.map((rt) => (
               <TouchableOpacity
                 key={rt.type}
                 style={styles.reactionPickerEmojiButton}
-                onPress={() => handlePostLike(item._id, rt.type)}
+                onPress={() => handlePostLike(postId, rt.type)}
               >
                 <Text style={styles.reactionPickerEmoji}>{rt.emoji}</Text>
               </TouchableOpacity>
@@ -485,9 +559,10 @@ export default function ProfileScreen({ navigation }) {
           <View style={styles.commentsSection}>
             <View style={styles.commentsList}>
               {commentsList.map((comment, index) => {
+                const commentId = comment.id || comment._id;
                 const commentUser = comment.user || {};
                 return (
-                  <View key={comment._id || index} style={styles.commentItem}>
+                  <View key={commentId || index} style={styles.commentItem}>
                     {commentUser.avatar ? (
                       <Image source={{ uri: commentUser.avatar }} style={styles.commentAvatar} />
                     ) : (
@@ -511,12 +586,12 @@ export default function ProfileScreen({ navigation }) {
                 style={styles.commentInput}
                 placeholder="Write a comment..."
                 placeholderTextColor="#8a8d91"
-                value={commentInputs[item._id] || ''}
-                onChangeText={(txt) => setCommentInputs({ ...commentInputs, [item._id]: txt })}
+                value={commentInputs[postId] || ''}
+                onChangeText={(txt) => setCommentInputs({ ...commentInputs, [postId]: txt })}
               />
               <TouchableOpacity
                 style={styles.sendCommentBtn}
-                onPress={() => handleAddComment(item._id)}
+                onPress={() => handleAddComment(postId)}
               >
                 <Ionicons name="send" size={18} color="#1877f2" />
               </TouchableOpacity>
@@ -532,7 +607,7 @@ export default function ProfileScreen({ navigation }) {
       <FlatList
         data={userPosts}
         renderItem={renderPostItem}
-        keyExtractor={item => item._id}
+        keyExtractor={item => item.id || item._id}
         showsVerticalScrollIndicator={false}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />}
         onEndReached={handleLoadMore}
@@ -552,35 +627,99 @@ export default function ProfileScreen({ navigation }) {
             {/* Profile Card details container */}
             <View style={styles.profileDetailsContainer}>
               <View style={styles.avatarWrapper}>
-                {user?.avatar ? (
-                  <Image source={{ uri: user.avatar }} style={styles.profileAvatar} />
+                {displayedUser?.avatar ? (
+                  <Image source={{ uri: displayedUser.avatar }} style={styles.profileAvatar} />
                 ) : (
                   <View style={[styles.profileAvatar, styles.profileAvatarPlaceholder]}>
                     <Text style={styles.avatarLargeText}>
-                      {user?.name ? user.name[0].toUpperCase() : '?'}
+                      {displayedUser?.name ? displayedUser.name[0].toUpperCase() : '?'}
                     </Text>
                   </View>
                 )}
               </View>
 
-              <Text style={styles.profileName}>{user?.name || 'Social User'}</Text>
-              {user?.bio ? (
-                <Text style={styles.profileBio}>{user.bio}</Text>
+              <Text style={styles.profileName}>{displayedUser?.name || 'Social User'}</Text>
+              {displayedUser?.bio ? (
+                <Text style={styles.profileBio}>{displayedUser.bio}</Text>
               ) : (
                 <Text style={[styles.profileBio, { color: '#8a8d91', fontStyle: 'italic' }]}>No bio yet</Text>
               )}
 
               {/* Profile Action Buttons */}
               <View style={styles.profileButtonsRow}>
-                <TouchableOpacity style={styles.editButton} onPress={handleOpenEditModal}>
-                  <Ionicons name="create-outline" size={18} color="#fff" style={{ marginRight: 6 }} />
-                  <Text style={styles.editButtonText}>Edit Profile</Text>
-                </TouchableOpacity>
+                {isOwnProfile ? (
+                  <>
+                    <TouchableOpacity style={styles.editButton} onPress={handleOpenEditModal}>
+                      <Ionicons name="create-outline" size={18} color="#fff" style={{ marginRight: 6 }} />
+                      <Text style={styles.editButtonText}>Edit Profile</Text>
+                    </TouchableOpacity>
 
-                <TouchableOpacity style={styles.logoutButton} onPress={logout}>
-                  <Ionicons name="log-out-outline" size={18} color="#fff" style={{ marginRight: 6 }} />
-                  <Text style={styles.logoutButtonText}>Log Out</Text>
-                </TouchableOpacity>
+                    <TouchableOpacity style={styles.logoutButton} onPress={logout}>
+                      <Ionicons name="log-out-outline" size={18} color="#fff" style={{ marginRight: 6 }} />
+                      <Text style={styles.logoutButtonText}>Log Out</Text>
+                    </TouchableOpacity>
+                  </>
+                ) : (
+                  <>
+                    <TouchableOpacity
+                      style={[styles.editButton, { marginRight: 8 }]}
+                      onPress={() => navigation.navigate('ChatDetail', { 
+                        userId: targetUserId, 
+                        userName: displayedUser?.name || 'User' 
+                      })}
+                    >
+                      <Ionicons name="chatbubble-ellipses-outline" size={18} color="#fff" style={{ marginRight: 6 }} />
+                      <Text style={styles.editButtonText}>Message</Text>
+                    </TouchableOpacity>
+
+                    {friendshipStatus === 'friends' && (
+                      <TouchableOpacity
+                        style={styles.logoutButton}
+                        onPress={() => removeFriend(targetUserId)}
+                      >
+                        <Ionicons name="person-remove-outline" size={18} color="#fff" style={{ marginRight: 6 }} />
+                        <Text style={styles.logoutButtonText}>Unfriend</Text>
+                      </TouchableOpacity>
+                    )}
+
+                    {friendshipStatus === 'sent_pending' && (
+                      <TouchableOpacity
+                        style={[styles.logoutButton, { backgroundColor: '#6c757d' }]}
+                        onPress={() => removeFriend(targetUserId)}
+                      >
+                        <Ionicons name="close-circle-outline" size={18} color="#fff" style={{ marginRight: 6 }} />
+                        <Text style={styles.logoutButtonText}>Cancel Request</Text>
+                      </TouchableOpacity>
+                    )}
+
+                    {friendshipStatus === 'received_pending' && (
+                      <View style={{ flexDirection: 'row', flex: 1 }}>
+                        <TouchableOpacity
+                          style={[styles.editButton, { backgroundColor: '#28a745', marginRight: 8 }]}
+                          onPress={() => respondFriendRequest(friendshipRequest.id || friendshipRequest._id, 'accepted')}
+                        >
+                          <Text style={styles.editButtonText}>Accept</Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity
+                          style={[styles.logoutButton, { backgroundColor: '#dc3545' }]}
+                          onPress={() => respondFriendRequest(friendshipRequest.id || friendshipRequest._id, 'declined')}
+                        >
+                          <Text style={styles.logoutButtonText}>Decline</Text>
+                        </TouchableOpacity>
+                      </View>
+                    )}
+
+                    {friendshipStatus === 'none' && (
+                      <TouchableOpacity
+                        style={[styles.editButton, { backgroundColor: '#28a745', marginRight: 0 }]}
+                        onPress={() => sendFriendRequest(targetUserId)}
+                      >
+                        <Ionicons name="person-add-outline" size={18} color="#fff" style={{ marginRight: 6 }} />
+                        <Text style={styles.editButtonText}>Add Friend</Text>
+                      </TouchableOpacity>
+                    )}
+                  </>
+                )}
               </View>
             </View>
 
@@ -604,7 +743,9 @@ export default function ProfileScreen({ navigation }) {
 
             {/* User's Posts Section */}
             <View style={styles.postsHeaderRow}>
-              <Text style={styles.sectionTitle}>My Posts</Text>
+              <Text style={styles.sectionTitle}>
+                {isOwnProfile ? 'My Posts' : `${displayedUser?.name || 'User'}'s Posts`}
+              </Text>
             </View>
 
             {isLoadingUserPosts && !refreshing && (
@@ -618,7 +759,9 @@ export default function ProfileScreen({ navigation }) {
           !isLoadingUserPosts ? (
             <View style={styles.emptyContainer}>
               <Ionicons name="document-text-outline" size={48} color="#8a8d91" />
-              <Text style={styles.emptyText}>You haven't posted anything yet.</Text>
+              <Text style={styles.emptyText}>
+                {isOwnProfile ? "You haven't posted anything yet." : `${displayedUser?.name || 'This user'} hasn't posted anything yet.`}
+              </Text>
             </View>
           ) : null
         }
@@ -633,7 +776,7 @@ export default function ProfileScreen({ navigation }) {
       {/* Edit Profile Modal */}
       <Modal visible={editModalVisible} animationType="slide" transparent>
         <KeyboardAvoidingView
-          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
           style={styles.modalOverlay}
         >
           <View style={styles.modalContent}>
@@ -715,7 +858,10 @@ export default function ProfileScreen({ navigation }) {
           setEditPostText('');
         }}
       >
-        <View style={styles.modalOverlay}>
+        <KeyboardAvoidingView 
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          style={styles.modalOverlay}
+        >
           <View style={styles.modalContent}>
             <Text style={styles.modalTitle}>Edit Post</Text>
 
@@ -762,7 +908,7 @@ export default function ProfileScreen({ navigation }) {
               </TouchableOpacity>
             </View>
           </View>
-        </View>
+        </KeyboardAvoidingView>
       </Modal>
     </SafeAreaView>
   );
@@ -771,7 +917,8 @@ export default function ProfileScreen({ navigation }) {
 const styles = StyleSheet.create({
   screen: {
     flex: 1,
-    backgroundColor: '#f0f2f5'
+    backgroundColor: '#f0f2f5',
+    paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight : 0,
   },
   coverArea: {
     height: 180,
@@ -917,7 +1064,8 @@ const styles = StyleSheet.create({
   },
   postsList: {
     paddingHorizontal: 16,
-    paddingBottom: 40
+    paddingBottom: 120,
+    flexGrow: 1
   },
   postCard: {
     backgroundColor: '#fff',

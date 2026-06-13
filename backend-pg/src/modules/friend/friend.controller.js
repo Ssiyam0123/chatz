@@ -59,6 +59,19 @@ export const sendFriendRequest = async (req, res) => {
       status: 'success',
       data: populatedRequest,
     });
+
+    // Emit socket event to receiver
+    const io = req.app.get('io');
+    if (io) {
+      const { userSockets } = await import('../socket/socket.handler.js');
+      console.log(`📡 Emitting friend_request_received to receiverId=${receiverId}`);
+      const receiverSockets = userSockets.get(String(receiverId));
+      if (receiverSockets) {
+        for (const socketId of receiverSockets) {
+          io.to(socketId).emit('friend_request_received', populatedRequest);
+        }
+      }
+    }
   } catch (err) {
     res.status(500).json({ status: 'error', message: err.message });
   }
@@ -108,6 +121,35 @@ export const respondToFriendRequest = async (req, res) => {
       message: `Friend request ${status}`,
       data: request,
     });
+
+    // Emit socket event
+    const io = req.app.get('io');
+    if (io) {
+      const { userSockets } = await import('../socket/socket.handler.js');
+      console.log(`📡 Emitting friend_request_responded status=${status} to sender=${request.senderId} and receiver=${userId}`);
+      // Notify the sender of the request
+      const senderSockets = userSockets.get(String(request.senderId));
+      if (senderSockets) {
+        for (const socketId of senderSockets) {
+          io.to(socketId).emit('friend_request_responded', {
+            requestId: request.id,
+            status,
+            request
+          });
+        }
+      }
+      // Notify other active sockets of the responder (receiver)
+      const receiverSockets = userSockets.get(String(userId));
+      if (receiverSockets) {
+        for (const socketId of receiverSockets) {
+          io.to(socketId).emit('friend_request_responded', {
+            requestId: request.id,
+            status,
+            request
+          });
+        }
+      }
+    }
   } catch (err) {
     res.status(500).json({ status: 'error', message: err.message });
   }
@@ -191,6 +233,27 @@ export const removeFriend = async (req, res) => {
       status: 'success',
       message: 'Unfriended successfully',
     });
+
+    // Emit socket event
+    const io = req.app.get('io');
+    if (io) {
+      const { userSockets } = await import('../socket/socket.handler.js');
+      console.log(`📡 Emitting friend_removed from userId=${userId} to friendId=${friendId}`);
+      // Notify the other user
+      const friendSockets = userSockets.get(String(friendId));
+      if (friendSockets) {
+        for (const socketId of friendSockets) {
+          io.to(socketId).emit('friend_removed', { friendId: userId });
+        }
+      }
+      // Notify other active sockets of the remover
+      const userSocketsSet = userSockets.get(String(userId));
+      if (userSocketsSet) {
+        for (const socketId of userSocketsSet) {
+          io.to(socketId).emit('friend_removed', { friendId });
+        }
+      }
+    }
   } catch (err) {
     res.status(500).json({ status: 'error', message: err.message });
   }
@@ -220,9 +283,9 @@ export const getSuggestions = async (req, res) => {
       },
     });
 
-    activeRequests.forEach((req) => {
-      excludeIds.push(req.senderId);
-      excludeIds.push(req.receiverId);
+    activeRequests.forEach((r) => {
+      excludeIds.push(r.senderId);
+      excludeIds.push(r.receiverId);
     });
 
     const uniqueExcludeIds = [...new Set(excludeIds)];

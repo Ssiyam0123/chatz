@@ -17,6 +17,37 @@ api.interceptors.request.use(
   (error) => Promise.reject(error)
 );
 
+const sanitizeAvatars = (obj) => {
+  if (!obj) return obj;
+  if (typeof obj === 'string') {
+    if (obj.includes('api.dicebear.com') && obj.includes('/svg')) {
+      return obj.replace('/svg', '/png');
+    }
+    return obj;
+  }
+  if (Array.isArray(obj)) {
+    return obj.map(sanitizeAvatars);
+  }
+  if (typeof obj === 'object') {
+    for (const key in obj) {
+      if (Object.prototype.hasOwnProperty.call(obj, key)) {
+        obj[key] = sanitizeAvatars(obj[key]);
+      }
+    }
+  }
+  return obj;
+};
+
+api.interceptors.response.use(
+  (response) => {
+    if (response.data) {
+      response.data = sanitizeAvatars(response.data);
+    }
+    return response;
+  },
+  (error) => Promise.reject(error)
+);
+
 // ─── Chat ────────────────────────────────────────────────────────────────────
 export const getAllUsers = () => api.get('/chat/users');
 export const getConversations = () => api.get('/chat/conversations');

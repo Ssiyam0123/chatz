@@ -7,6 +7,9 @@ import {
   StyleSheet,
   ActivityIndicator,
   Image,
+  SafeAreaView,
+  Platform,
+  StatusBar,
 } from 'react-native';
 import useChatStore from '../stores/chatStore';
 
@@ -63,10 +66,15 @@ export default function ChatListScreen({ navigation }) {
                 : ''}
             </Text>
           </View>
-          <Text style={styles.lastMsg} numberOfLines={1}>
+          <Text style={[styles.lastMsg, item.unreadCount > 0 && styles.unreadLastMsg]} numberOfLines={1}>
             {item.lastMessage || 'No messages yet'}
           </Text>
         </View>
+        {item.unreadCount > 0 && (
+          <View style={styles.unreadBadge}>
+            <Text style={styles.unreadBadgeText}>{item.unreadCount}</Text>
+          </View>
+        )}
       </TouchableOpacity>
     );
   };
@@ -80,7 +88,7 @@ export default function ChatListScreen({ navigation }) {
   }
 
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.container}>
       <FlatList
         data={conversations}
         renderItem={renderItem}
@@ -94,12 +102,16 @@ export default function ChatListScreen({ navigation }) {
           </View>
         }
       />
-    </View>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#fff' },
+  container: {
+    flex: 1,
+    backgroundColor: '#fff',
+    paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight : 0,
+  },
   center: { flex: 1, justifyContent: 'center' },
   chatItem: {
     flexDirection: 'row',
@@ -142,4 +154,23 @@ const styles = StyleSheet.create({
   empty: { flex: 1, alignItems: 'center', marginTop: 100 },
   emptyText: { color: '#999', fontSize: 16 },
   startText: { color: '#007bff', marginTop: 10, fontWeight: '600' },
+  unreadLastMsg: {
+    fontWeight: 'bold',
+    color: '#000',
+  },
+  unreadBadge: {
+    backgroundColor: '#007bff',
+    minWidth: 20,
+    height: 20,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 6,
+    marginLeft: 10,
+  },
+  unreadBadgeText: {
+    color: '#fff',
+    fontSize: 11,
+    fontWeight: 'bold',
+  },
 });

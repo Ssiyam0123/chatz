@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -15,11 +15,13 @@ import {
   SafeAreaView,
   KeyboardAvoidingView,
   Platform,
+  StatusBar,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import useChatStore from '../stores/chatStore';
 import { useAuthStore } from '../stores/authStore';
+import { useFocusEffect } from '@react-navigation/native';
 import { uploadImage } from '../api/api';
 
 const { width, height } = Dimensions.get('window');
@@ -92,11 +94,74 @@ export default function FeedScreen({ navigation }) {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
 
-  useEffect(() => {
-    fetchPosts(1, 15);
-    fetchStories();
-    fetchSuggestions();
-  }, []);
+  // Premium Custom Modal state
+  const [premiumModal, setPremiumModal] = useState({
+    visible: false,
+    title: '',
+    message: '',
+    type: 'alert', // 'alert' | 'prompt' | 'confirm'
+    placeholder: '',
+    inputValue: '',
+    confirmText: 'OK',
+    cancelText: 'Cancel',
+    onConfirm: () => {},
+  });
+
+  const showPremiumAlert = (title, message, confirmText = 'OK') => {
+    setPremiumModal({
+      visible: true,
+      title,
+      message,
+      type: 'alert',
+      placeholder: '',
+      inputValue: '',
+      confirmText,
+      cancelText: 'Cancel',
+      onConfirm: () => setPremiumModal(prev => ({ ...prev, visible: false })),
+    });
+  };
+
+  const showPremiumPrompt = (title, placeholder, confirmText, onConfirm) => {
+    setPremiumModal({
+      visible: true,
+      title,
+      message: '',
+      type: 'prompt',
+      placeholder,
+      inputValue: '',
+      confirmText,
+      cancelText: 'Cancel',
+      onConfirm: (val) => {
+        setPremiumModal(prev => ({ ...prev, visible: false }));
+        onConfirm(val);
+      },
+    });
+  };
+
+  const showPremiumConfirm = (title, message, confirmText, onConfirm) => {
+    setPremiumModal({
+      visible: true,
+      title,
+      message,
+      type: 'confirm',
+      placeholder: '',
+      inputValue: '',
+      confirmText,
+      cancelText: 'Cancel',
+      onConfirm: () => {
+        setPremiumModal(prev => ({ ...prev, visible: false }));
+        onConfirm();
+      },
+    });
+  };
+
+  useFocusEffect(
+    useCallback(() => {
+      fetchPosts(1, 15);
+      fetchStories();
+      fetchSuggestions();
+    }, [])
+  );
 
   const handleRefresh = async () => {
     setIsRefreshing(true);
@@ -139,7 +204,7 @@ export default function FeedScreen({ navigation }) {
   // Submit edited post
   const handleSaveEditPost = async () => {
     if (!editPostText.trim()) {
-      Alert.alert('Edit Error', 'Post content cannot be empty.');
+      showPremiumAlert('Edit Error', 'Post content cannot be empty.');
       return;
     }
     setIsEditing(true);
@@ -150,7 +215,7 @@ export default function FeedScreen({ navigation }) {
       setEditPostText('');
       fetchPosts(); // Refresh post feed
     } catch (err) {
-      Alert.alert('Edit Failed', err.message || 'Could not update post');
+      showPremiumAlert('Edit Failed', err.message || 'Could not update post');
     } finally {
       setIsEditing(false);
     }
@@ -158,25 +223,19 @@ export default function FeedScreen({ navigation }) {
 
   // Delete a post
   const handleDeletePost = (postId) => {
-    Alert.alert(
+    showPremiumConfirm(
       'Delete Post',
       'Are you sure you want to delete this post?',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Delete',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              await deletePost(postId);
-              Alert.alert('Success', 'Post deleted successfully');
-              fetchPosts();
-            } catch (err) {
-              Alert.alert('Error', 'Could not delete post');
-            }
-          },
-        },
-      ]
+      'Delete',
+      async () => {
+        try {
+          await deletePost(postId);
+          showPremiumAlert('Success', 'Post deleted successfully!');
+          fetchPosts();
+        } catch (err) {
+          showPremiumAlert('Error', 'Could not delete post');
+        }
+      }
     );
   };
 
@@ -184,7 +243,7 @@ export default function FeedScreen({ navigation }) {
   const handleSendFriendRequest = async (receiverId) => {
     try {
       await sendFriendRequest(receiverId);
-      Alert.alert('Request Sent', 'Friend request sent successfully!');
+      showPremiumAlert('Request Sent', 'Friend request sent successfully!');
       fetchSuggestions(); // Refresh suggestions
     } catch (err) {
       console.error(err);
@@ -217,7 +276,7 @@ export default function FeedScreen({ navigation }) {
   // Submit new post
   const handleCreatePost = async () => {
     if (!postText.trim() && postImages.length === 0) {
-      Alert.alert('Post Error', 'Please type some text or attach at least one photo.');
+      showPremiumAlert('Post Error', 'Please type some text or attach at least one photo.');
       return;
     }
 
@@ -235,7 +294,7 @@ export default function FeedScreen({ navigation }) {
       setPostImages([]);
       fetchPosts(); // Refresh post feed
     } catch (err) {
-      Alert.alert('Post Failed', err.message || 'Could not create post');
+      showPremiumAlert('Post Failed', err.message || 'Could not create post');
     } finally {
       setIsPosting(false);
     }
@@ -255,10 +314,10 @@ export default function FeedScreen({ navigation }) {
       try {
         const imageUrl = await uploadImage({ uri: result.assets[0].uri });
         await createStory(imageUrl, 'New Story');
-        Alert.alert('Story Created', 'Your story has been uploaded successfully!');
+        showPremiumAlert('Story Created', 'Your story has been uploaded successfully!');
         fetchStories();
       } catch (err) {
-        Alert.alert('Story Upload Failed', err.message || 'Could not create story');
+        showPremiumAlert('Story Upload Failed', err.message || 'Could not create story');
       } finally {
         setIsCreatingStory(false);
       }
@@ -294,34 +353,25 @@ export default function FeedScreen({ navigation }) {
       await addComment(postId, text.trim());
       setCommentInputs({ ...commentInputs, [postId]: '' });
     } catch (err) {
-      Alert.alert('Comment Failed', 'Could not add comment');
+      showPremiumAlert('Comment Failed', 'Could not add comment');
     }
   };
 
   // Share/repost post
   const handleShare = (postId) => {
-    Alert.prompt(
+    showPremiumPrompt(
       'Share Post',
-      'Add a caption to this shared post (optional):',
-      [
-        {
-          text: 'Cancel',
-          style: 'cancel',
-        },
-        {
-          text: 'Share Now',
-          onPress: async (caption) => {
-            try {
-              await sharePost(postId, caption);
-              Alert.alert('Success', 'Post shared successfully!');
-              fetchPosts();
-            } catch (err) {
-              Alert.alert('Share Failed', 'Could not share post');
-            }
-          },
-        },
-      ],
-      'plain-text'
+      'Add a caption to this shared post (optional)...',
+      'Share Now',
+      async (caption) => {
+        try {
+          await sharePost(postId, caption);
+          showPremiumAlert('Success', 'Post shared successfully!');
+          fetchPosts();
+        } catch (err) {
+          showPremiumAlert('Share Failed', 'Could not share post');
+        }
+      }
     );
   };
 
@@ -396,13 +446,14 @@ export default function FeedScreen({ navigation }) {
 
   // Render individual post feed item
   const renderPostItem = ({ item }) => {
+    const postId = item.id || item._id;
     const postUser = item.user || {};
     const commentsList = item.comments || [];
-    const isCommentsVisible = !!visibleComments[item._id];
+    const isCommentsVisible = !!visibleComments[postId];
 
     // Find active reaction
     const currentUserId = user?.id || user?._id;
-    const userReaction = item.reactions?.find(r => (r.user?._id || r.user) === currentUserId);
+    const userReaction = item.reactions?.find(r => (r.user?._id || r.user?.id || r.user) === currentUserId);
     const activeReaction = REACTION_TYPES.find(rt => rt.type === userReaction?.type);
 
     // Compute unique emojis
@@ -416,7 +467,10 @@ export default function FeedScreen({ navigation }) {
       <View style={styles.postCard}>
         {/* Post Header */}
         <View style={styles.postHeader}>
-          <View style={{ flexDirection: 'row', flex: 1, alignItems: 'center' }}>
+          <TouchableOpacity 
+            style={{ flexDirection: 'row', flex: 1, alignItems: 'center' }}
+            onPress={() => navigation.navigate('UserProfile', { userId: postUser.id || postUser._id })}
+          >
             {postUser.avatar ? (
               <Image source={{ uri: postUser.avatar }} style={styles.postAvatar} />
             ) : (
@@ -433,8 +487,8 @@ export default function FeedScreen({ navigation }) {
                 {new Date(item.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
               </Text>
             </View>
-          </View>
-          {currentUserId === (postUser._id || postUser.id) && (
+          </TouchableOpacity>
+          {currentUserId === (postUser.id || postUser._id) && (
             <View style={{ flexDirection: 'row', alignItems: 'center' }}>
               <TouchableOpacity
                 style={{ padding: 6, marginRight: 8 }}
@@ -444,7 +498,7 @@ export default function FeedScreen({ navigation }) {
               </TouchableOpacity>
               <TouchableOpacity
                 style={{ padding: 6 }}
-                onPress={() => handleDeletePost(item._id)}
+                onPress={() => handleDeletePost(postId)}
               >
                 <Ionicons name="trash-outline" size={20} color="#ff4d4d" />
               </TouchableOpacity>
@@ -520,13 +574,13 @@ export default function FeedScreen({ navigation }) {
         </View>
 
         {/* Inline Reaction Picker Popover */}
-        {reactionPickerPostId === item._id && (
+        {reactionPickerPostId === postId && (
           <View style={styles.reactionPickerContainer}>
             {REACTION_TYPES.map((reaction) => (
               <TouchableOpacity
                 key={reaction.type}
                 style={styles.reactionPickerEmojiBtn}
-                onPress={() => handleReactionSelect(item._id, reaction.type)}
+                onPress={() => handleReactionSelect(postId, reaction.type)}
               >
                 <Text style={styles.reactionPickerEmoji}>{reaction.emoji}</Text>
               </TouchableOpacity>
@@ -538,12 +592,12 @@ export default function FeedScreen({ navigation }) {
         <View style={styles.actionsBar}>
           <TouchableOpacity
             style={styles.actionBtn}
-            onLongPress={() => setReactionPickerPostId(item._id)}
+            onLongPress={() => setReactionPickerPostId(postId)}
             onPress={() => {
               if (activeReaction) {
-                handleReactionSelect(item._id, activeReaction.type);
+                handleReactionSelect(postId, activeReaction.type);
               } else {
-                handleReactionSelect(item._id, 'like');
+                handleReactionSelect(postId, 'like');
               }
             }}
           >
@@ -565,14 +619,14 @@ export default function FeedScreen({ navigation }) {
           <TouchableOpacity
             style={styles.actionBtn}
             onPress={() =>
-              setVisibleComments({ ...visibleComments, [item._id]: !isCommentsVisible })
+              setVisibleComments({ ...visibleComments, [postId]: !isCommentsVisible })
             }
           >
             <Ionicons name="chatbubble-outline" size={20} color="#666" />
             <Text style={styles.actionBtnText}>Comment</Text>
           </TouchableOpacity>
 
-          <TouchableOpacity style={styles.actionBtn} onPress={() => handleShare(item._id)}>
+          <TouchableOpacity style={styles.actionBtn} onPress={() => handleShare(postId)}>
             <Ionicons name="share-social-outline" size={20} color="#666" />
             <Text style={styles.actionBtnText}>Share</Text>
           </TouchableOpacity>
@@ -582,30 +636,39 @@ export default function FeedScreen({ navigation }) {
         {isCommentsVisible && (
           <View style={styles.commentsSection}>
             {commentsList.map((comm, idx) => {
+              const commId = comm.id || comm._id;
               const commReactions = comm.reactions || [];
-              const userCommReact = commReactions.find(r => (r.user?._id || r.user) === currentUserId);
+              const userCommReact = commReactions.find(r => (r.user?._id || r.user?.id || r.user) === currentUserId);
               const activeCommReact = REACTION_TYPES.find(rt => rt.type === userCommReact?.type);
               
               return (
-                <View key={comm._id || idx} style={styles.commentContainer}>
+                <View key={commId || idx} style={styles.commentContainer}>
                   <View style={styles.commentItem}>
-                    {comm.user?.avatar ? (
-                      <Image source={{ uri: comm.user.avatar }} style={styles.commentAvatar} />
-                    ) : (
-                      <View style={[styles.commentAvatar, styles.avatarPlaceholder]}>
-                        <Text style={[styles.avatarText, { fontSize: 10 }]}>
-                          {comm.user?.name ? comm.user.name[0].toUpperCase() : '?'}
-                        </Text>
-                      </View>
-                    )}
+                    <TouchableOpacity
+                      onPress={() => navigation.navigate('UserProfile', { userId: comm.user?.id || comm.user?._id })}
+                    >
+                      {comm.user?.avatar ? (
+                        <Image source={{ uri: comm.user.avatar }} style={styles.commentAvatar} />
+                      ) : (
+                        <View style={[styles.commentAvatar, styles.avatarPlaceholder]}>
+                          <Text style={[styles.avatarText, { fontSize: 10 }]}>
+                            {comm.user?.name ? comm.user.name[0].toUpperCase() : '?'}
+                          </Text>
+                        </View>
+                      )}
+                    </TouchableOpacity>
                     <View style={styles.commentBubble}>
-                      <Text style={styles.commentAuthor}>{comm.user?.name || 'User'}</Text>
+                      <TouchableOpacity
+                        onPress={() => navigation.navigate('UserProfile', { userId: comm.user?.id || comm.user?._id })}
+                      >
+                        <Text style={styles.commentAuthor}>{comm.user?.name || 'User'}</Text>
+                      </TouchableOpacity>
                       <Text style={styles.commentText}>{comm.text}</Text>
                       
                       {/* Mini comment reactions list */}
                       {commReactions.length > 0 && (
                         <View style={styles.commentReactionsBadge}>
-                          {commReactions.slice(0, 3).map((r, i) => (
+                           {commReactions.slice(0, 3).map((r, i) => (
                             <Text key={i} style={{ fontSize: 10 }}>
                               {REACTION_TYPES.find(rt => rt.type === r.type)?.emoji}
                             </Text>
@@ -619,12 +682,12 @@ export default function FeedScreen({ navigation }) {
                   {/* Comment interaction buttons */}
                   <View style={styles.commentActionRow}>
                     <TouchableOpacity
-                      onLongPress={() => setReactionPickerCommentId(comm._id)}
+                      onLongPress={() => setReactionPickerCommentId(commId)}
                       onPress={() => {
                         if (activeCommReact) {
-                          handleCommentReactionSelect(item._id, comm._id, activeCommReact.type);
+                          handleCommentReactionSelect(postId, commId, activeCommReact.type);
                         } else {
-                          handleCommentReactionSelect(item._id, comm._id, 'like');
+                          handleCommentReactionSelect(postId, commId, 'like');
                         }
                       }}
                     >
@@ -637,13 +700,13 @@ export default function FeedScreen({ navigation }) {
                     </TouchableOpacity>
                     
                     {/* Inline Picker popover inside comment */}
-                    {reactionPickerCommentId === comm._id && (
+                    {reactionPickerCommentId === commId && (
                       <View style={styles.commentReactionPicker}>
                         {REACTION_TYPES.map((reaction) => (
                           <TouchableOpacity
                             key={reaction.type}
                             style={styles.commentReactionPickerEmojiBtn}
-                            onPress={() => handleCommentReactionSelect(item._id, comm._id, reaction.type)}
+                            onPress={() => handleCommentReactionSelect(postId, commId, reaction.type)}
                           >
                             <Text style={styles.commentReactionPickerEmoji}>{reaction.emoji}</Text>
                           </TouchableOpacity>
@@ -661,12 +724,12 @@ export default function FeedScreen({ navigation }) {
                 style={styles.commentInput}
                 placeholder="Write a comment..."
                 placeholderTextColor="#999"
-                value={commentInputs[item._id] || ''}
-                onChangeText={(text) => setCommentInputs({ ...commentInputs, [item._id]: text })}
+                value={commentInputs[postId] || ''}
+                onChangeText={(text) => setCommentInputs({ ...commentInputs, [postId]: text })}
               />
               <TouchableOpacity
                 style={styles.commentSendBtn}
-                onPress={() => handleAddCommentSubmit(item._id)}
+                onPress={() => handleAddCommentSubmit(postId)}
               >
                 <Ionicons name="send" size={16} color="#fff" />
               </TouchableOpacity>
@@ -688,9 +751,9 @@ export default function FeedScreen({ navigation }) {
         <FlatList
           data={posts}
           renderItem={renderPostItem}
-          keyExtractor={(item) => item._id}
+          keyExtractor={(item) => item.id || item._id}
           showsVerticalScrollIndicator={false}
-          contentContainerStyle={{ paddingBottom: 30 }}
+          contentContainerStyle={{ paddingBottom: 120 }}
           refreshing={isRefreshing}
           onRefresh={handleRefresh}
           onEndReached={handleLoadMore}
@@ -815,25 +878,30 @@ export default function FeedScreen({ navigation }) {
                     contentContainerStyle={styles.suggestionsScroll}
                   >
                     {suggestions.map((item) => (
-                      <View key={item._id} style={styles.suggestionCard}>
-                        {item.avatar ? (
-                          <Image source={{ uri: item.avatar }} style={styles.suggestionAvatar} />
-                        ) : (
-                          <View style={[styles.suggestionAvatar, styles.avatarPlaceholder, { width: 55, height: 55, borderRadius: 27.5 }]}>
-                            <Text style={[styles.avatarText, { fontSize: 20 }]}>
-                              {item.name ? item.name[0].toUpperCase() : '?'}
-                            </Text>
-                          </View>
-                        )}
-                        <Text style={styles.suggestionName} numberOfLines={1}>
-                          {item.name}
-                        </Text>
-                        <Text style={styles.suggestionBio} numberOfLines={1}>
-                          {item.bio || 'No bio yet'}
-                        </Text>
+                      <View key={item.id || item._id} style={styles.suggestionCard}>
+                        <TouchableOpacity
+                          style={{ alignItems: 'center', width: '100%' }}
+                          onPress={() => navigation.navigate('UserProfile', { userId: item.id || item._id })}
+                        >
+                          {item.avatar ? (
+                            <Image source={{ uri: item.avatar }} style={styles.suggestionAvatar} />
+                          ) : (
+                            <View style={[styles.suggestionAvatar, styles.avatarPlaceholder, { width: 55, height: 55, borderRadius: 27.5 }]}>
+                              <Text style={[styles.avatarText, { fontSize: 20 }]}>
+                                {item.name ? item.name[0].toUpperCase() : '?'}
+                              </Text>
+                            </View>
+                          )}
+                          <Text style={styles.suggestionName} numberOfLines={1}>
+                            {item.name}
+                          </Text>
+                          <Text style={styles.suggestionBio} numberOfLines={1}>
+                            {item.bio || 'No bio yet'}
+                          </Text>
+                        </TouchableOpacity>
                         <TouchableOpacity
                           style={styles.addFriendBtn}
-                          onPress={() => handleSendFriendRequest(item._id)}
+                          onPress={() => handleSendFriendRequest(item.id || item._id)}
                         >
                           <Ionicons name="person-add" size={13} color="#fff" style={{ marginRight: 4 }} />
                           <Text style={styles.addFriendText}>Add Friend</Text>
@@ -1132,6 +1200,63 @@ export default function FeedScreen({ navigation }) {
           </View>
         </View>
       </Modal>
+
+      {/* Premium Custom Alert/Prompt/Confirm Modal */}
+      <Modal
+        visible={premiumModal.visible}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setPremiumModal(prev => ({ ...prev, visible: false }))}
+      >
+        <View style={styles.premiumModalOverlay}>
+          <View style={styles.premiumModalContent}>
+            <Text style={styles.premiumModalTitle}>{premiumModal.title}</Text>
+            
+            {premiumModal.message ? (
+              <Text style={styles.premiumModalMessage}>{premiumModal.message}</Text>
+            ) : null}
+
+            {premiumModal.type === 'prompt' && (
+              <TextInput
+                style={styles.premiumModalInput}
+                placeholder={premiumModal.placeholder}
+                placeholderTextColor="#999"
+                value={premiumModal.inputValue}
+                onChangeText={(text) => setPremiumModal(prev => ({ ...prev, inputValue: text }))}
+                autoFocus={true}
+              />
+            )}
+
+            <View style={styles.premiumModalButtons}>
+              {premiumModal.type !== 'alert' && (
+                <TouchableOpacity
+                  style={[styles.premiumModalBtn, styles.premiumModalCancelBtn]}
+                  onPress={() => setPremiumModal(prev => ({ ...prev, visible: false }))}
+                >
+                  <Text style={styles.premiumModalCancelText}>{premiumModal.cancelText}</Text>
+                </TouchableOpacity>
+              )}
+              
+              <TouchableOpacity
+                style={[
+                  styles.premiumModalBtn, 
+                  styles.premiumModalConfirmBtn,
+                  premiumModal.title.toLowerCase().includes('delete') && { backgroundColor: '#ff4d4d' }
+                ]}
+                onPress={() => {
+                  if (premiumModal.type === 'prompt') {
+                    premiumModal.onConfirm(premiumModal.inputValue);
+                  } else {
+                    premiumModal.onConfirm();
+                  }
+                }}
+              >
+                <Text style={styles.premiumModalConfirmText}>{premiumModal.confirmText}</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -1140,6 +1265,7 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#f4f6f9',
+    paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight : 0,
   },
   suggestionsContainer: {
     backgroundColor: '#fff',
@@ -1828,5 +1954,80 @@ const styles = StyleSheet.create({
   },
   reactantEmoji: {
     fontSize: 20,
+  },
+  premiumModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.6)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  premiumModalContent: {
+    backgroundColor: '#fff',
+    borderRadius: 20,
+    padding: 24,
+    width: '85%',
+    maxWidth: 400,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.15,
+    shadowRadius: 20,
+    elevation: 10,
+    alignItems: 'center',
+  },
+  premiumModalTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#1a1a1a',
+    marginBottom: 12,
+    textAlign: 'center',
+  },
+  premiumModalMessage: {
+    fontSize: 15,
+    color: '#555',
+    textAlign: 'center',
+    marginBottom: 20,
+    lineHeight: 22,
+  },
+  premiumModalInput: {
+    width: '100%',
+    backgroundColor: '#f5f5f5',
+    borderWidth: 1,
+    borderColor: '#e5e5e5',
+    borderRadius: 12,
+    padding: 14,
+    fontSize: 15,
+    color: '#333',
+    marginBottom: 20,
+    outlineStyle: 'none',
+  },
+  premiumModalButtons: {
+    flexDirection: 'row',
+    width: '100%',
+    justifyContent: 'flex-end',
+  },
+  premiumModalBtn: {
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    minWidth: 100,
+    marginLeft: 10,
+  },
+  premiumModalCancelBtn: {
+    backgroundColor: '#f5f5f5',
+  },
+  premiumModalConfirmBtn: {
+    backgroundColor: '#007bff',
+  },
+  premiumModalCancelText: {
+    color: '#555',
+    fontWeight: '600',
+    fontSize: 15,
+  },
+  premiumModalConfirmText: {
+    color: '#fff',
+    fontWeight: '600',
+    fontSize: 15,
   },
 });
