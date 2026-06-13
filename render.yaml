@@ -1,0 +1,34 @@
+services:
+  - type: web
+    name: chaz-backend
+    runtime: node
+    repo: https://github.com/Ssiyam0123/chatz
+    branch: main
+    rootDir: backend-pg
+    buildCommand: npm install
+    startCommand: npm start
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: chatz-db
+          property: connectionString
+      - key: JWT_SECRET
+        generateValue: true
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 5002
+      - key: CORS_ORIGIN
+        value: "*"
+      - key: CLOUDINARY_CLOUD_NAME
+        sync: false
+      - key: CLOUDINARY_API_KEY
+        sync: false
+      - key: CLOUDINARY_API_SECRET
+        sync: false
+
+databases:
+  - name: chatz-db
+    databaseName: chatz
+    user: chatz_user
+    plan: free
