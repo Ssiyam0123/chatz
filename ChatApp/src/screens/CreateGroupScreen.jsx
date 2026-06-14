@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, TextInput, Button, FlatList, TouchableOpacity, StyleSheet, Alert, ActivityIndicator, Image, KeyboardAvoidingView, Platform } from 'react-native';
+import { View, Text, TextInput, FlatList, TouchableOpacity, StyleSheet, Alert, ActivityIndicator, Image, KeyboardAvoidingView, Platform, SafeAreaView } from 'react-native';
 import { getAllUsers, createGroup, uploadImage } from '../api/api';
 import * as ImagePicker from 'expo-image-picker';
 import { Ionicons } from '@expo/vector-icons';
+import { colors, radii, spacing } from '../theme/blushDusk';
 
 export default function CreateGroupScreen({ navigation }) {
   const [groupName, setGroupName] = useState('');
@@ -77,127 +78,157 @@ export default function CreateGroupScreen({ navigation }) {
   };
 
   const renderUser = ({ item }) => (
-    <TouchableOpacity style={styles.userItem} onPress={() => toggleSelect(item._id)}>
+    <TouchableOpacity style={styles.userItem} onPress={() => toggleSelect(item._id)} activeOpacity={0.7}>
       <View style={styles.userInfo}>
-        <View style={styles.userAvatar}>
-          <Text style={styles.avatarText}>{item.name.charAt(0).toUpperCase()}</Text>
+        <View style={[styles.userAvatar, selectedUsers[item._id] && { backgroundColor: colors.primarySoft }]}>
+          <Text style={[styles.avatarText, selectedUsers[item._id] && { color: colors.primary }]}>
+            {item.name.charAt(0).toUpperCase()}
+          </Text>
         </View>
         <Text style={styles.userName}>{item.name}</Text>
       </View>
       <Ionicons 
         name={selectedUsers[item._id] ? 'checkbox' : 'square-outline'} 
         size={24} 
-        color={selectedUsers[item._id] ? '#007AFF' : '#ccc'} 
+        color={selectedUsers[item._id] ? colors.primary : colors.border} 
       />
     </TouchableOpacity>
   );
 
   return (
-    <KeyboardAvoidingView 
-      style={styles.container} 
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-      keyboardVerticalOffset={Platform.OS === 'ios' ? 80 : 0}
-    >
-      <View style={styles.avatarSection}>
-        <TouchableOpacity onPress={pickAvatar} style={styles.avatarPicker}>
-          {avatar ? (
-            <Image source={{ uri: avatar.uri }} style={styles.selectedAvatar} />
+    <SafeAreaView style={styles.safeArea}>
+      <KeyboardAvoidingView 
+        style={styles.container} 
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 80 : 0}
+      >
+        <View style={styles.avatarSection}>
+          <TouchableOpacity onPress={pickAvatar} style={styles.avatarPicker}>
+            {avatar ? (
+              <Image source={{ uri: avatar.uri }} style={styles.selectedAvatar} />
+            ) : (
+              <View style={styles.avatarPlaceholder}>
+                <Ionicons name="camera" size={36} color={colors.textMuted} />
+              </View>
+            )}
+          </TouchableOpacity>
+        </View>
+
+        <View style={styles.inputWrap}>
+          <TextInput
+            style={styles.input}
+            placeholder="Group name"
+            placeholderTextColor={colors.textSoft}
+            value={groupName}
+            onChangeText={setGroupName}
+          />
+        </View>
+
+        <Text style={styles.sectionTitle}>Select Members</Text>
+        {loading ? (
+          <View style={styles.center}>
+            <ActivityIndicator size="large" color={colors.primary} />
+          </View>
+        ) : (
+          <FlatList
+            data={users}
+            keyExtractor={(item) => item._id}
+            renderItem={renderUser}
+            style={styles.userList}
+            contentContainerStyle={styles.userListContent}
+          />
+        )}
+
+        <TouchableOpacity 
+          style={[styles.createButton, (creating || loading) && styles.disabledButton]} 
+          onPress={handleCreate} 
+          disabled={creating || loading}
+          activeOpacity={0.85}
+        >
+          {creating ? (
+            <ActivityIndicator color={colors.white} />
           ) : (
-            <View style={styles.avatarPlaceholder}>
-              <Ionicons name="camera" size={40} color="#999" />
-              <Text style={styles.avatarPlaceholderText}>Add Avatar</Text>
-            </View>
+            <Text style={styles.createButtonText}>Create Group</Text>
           )}
         </TouchableOpacity>
-      </View>
-      <View style={styles.inputContainer}>
-        <TextInput
-          style={styles.input}
-          placeholder="Group name"
-          value={groupName}
-          onChangeText={setGroupName}
-        />
-      </View>
-      <Text style={styles.sectionTitle}>Select Members</Text>
-      {loading ? (
-        <ActivityIndicator size="large" color="#007AFF" />
-      ) : (
-        <FlatList
-          data={users}
-          keyExtractor={(item) => item._id}
-          renderItem={renderUser}
-          style={styles.userList}
-        />
-      )}
-      <TouchableOpacity 
-        style={[styles.createButton, (creating || loading) && styles.disabledButton]} 
-        onPress={handleCreate} 
-        disabled={creating || loading}
-      >
-        {creating ? (
-          <ActivityIndicator color="#fff" />
-        ) : (
-          <Text style={styles.createButtonText}>Create Group</Text>
-        )}
-      </TouchableOpacity>
-    </KeyboardAvoidingView>
+      </KeyboardAvoidingView>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#fff', padding: 16 },
-  inputContainer: { marginBottom: 20 },
-  input: { 
-    borderWidth: 1, 
-    borderColor: '#ddd', 
-    padding: 12, 
-    borderRadius: 8, 
-    fontSize: 16 
-  },
-  sectionTitle: { fontSize: 18, fontWeight: 'bold', marginBottom: 12, color: '#333' },
-  userList: { flex: 1 },
-  userItem: { 
-    flexDirection: 'row', 
-    justifyContent: 'space-between', 
-    alignItems: 'center', 
-    paddingVertical: 12, 
-    borderBottomWidth: 1, 
-    borderColor: '#f0f0f0' 
-  },
-  userInfo: { flexDirection: 'row', alignItems: 'center' },
-  userAvatar: { 
-    width: 40, 
-    height: 40, 
-    borderRadius: 20, 
-    backgroundColor: '#eee', 
-    justifyContent: 'center', 
-    alignItems: 'center',
-    marginRight: 12
-  },
-  avatarText: { fontWeight: 'bold', color: '#555' },
-  userName: { fontSize: 16 },
-  createButton: {
-    backgroundColor: '#007AFF',
-    padding: 16,
-    borderRadius: 8,
-    alignItems: 'center',
-    marginTop: 16
-  },
-  disabledButton: { backgroundColor: '#ccc' },
-  createButtonText: { color: '#fff', fontSize: 18, fontWeight: 'bold' },
-  avatarSection: { alignItems: 'center', marginBottom: 20 },
+  safeArea: { flex: 1, backgroundColor: colors.background },
+  container: { flex: 1, padding: spacing.lg },
+  center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+  avatarSection: { alignItems: 'center', marginBottom: spacing.xxl },
   avatarPicker: {
     width: 100,
     height: 100,
     borderRadius: 50,
-    backgroundColor: '#f0f0f0',
+    backgroundColor: colors.surfaceMuted,
     justifyContent: 'center',
     alignItems: 'center',
     overflow: 'hidden',
-    borderWidth: 1,
-    borderColor: '#ddd',
+    borderWidth: 2,
+    borderColor: colors.primarySoft,
   },
-  selectedAvatar: { width: 100, height: 100 },
+  selectedAvatar: { width: 100, height: 100, borderRadius: 50 },
   avatarPlaceholder: { alignItems: 'center' },
-  avatarPlaceholderText: { fontSize: 12, color: '#999', marginTop: 4 },
+  inputWrap: {
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radii.small,
+    paddingHorizontal: spacing.lg,
+    marginBottom: spacing.xxl,
+  },
+  input: { 
+    fontSize: 16,
+    color: colors.text,
+    paddingVertical: spacing.md,
+    outlineStyle: 'none',
+  },
+  sectionTitle: { 
+    fontSize: 16,
+    fontWeight: '600',
+    marginBottom: spacing.md,
+    color: colors.text,
+  },
+  userList: { flex: 1 },
+  userListContent: { paddingBottom: 80 },
+  userItem: { 
+    flexDirection: 'row', 
+    justifyContent: 'space-between', 
+    alignItems: 'center', 
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.sm,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+    backgroundColor: colors.surface,
+    borderRadius: radii.small,
+    marginBottom: spacing.xs,
+  },
+  userInfo: { flexDirection: 'row', alignItems: 'center' },
+  userAvatar: { 
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: colors.background,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: spacing.md,
+  },
+  avatarText: { fontWeight: '700', color: colors.textMuted },
+  userName: { fontSize: 15, color: colors.text },
+  createButton: {
+    backgroundColor: colors.primary,
+    paddingVertical: 15,
+    borderRadius: radii.small,
+    alignItems: 'center',
+    marginTop: spacing.lg,
+    minHeight: 50,
+    justifyContent: 'center',
+  },
+  disabledButton: { opacity: 0.5 },
+  createButtonText: { color: colors.white, fontSize: 16, fontWeight: '600' },
 });

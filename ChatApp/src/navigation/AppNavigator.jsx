@@ -9,8 +9,24 @@ import CreateGroupScreen from '../screens/CreateGroupScreen';
 import GroupChatScreen from '../screens/GroupChatScreen';
 import MainTabNavigator from './MainTabNavigator';
 import ProfileScreen from '../screens/ProfileScreen';
+import { colors } from '../theme/blushDusk';
 
 const Stack = createStackNavigator();
+
+const defaultStackOptions = {
+  headerStyle: {
+    backgroundColor: colors.surface,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+  },
+  headerTintColor: colors.text,
+  headerTitleStyle: {
+    fontWeight: '600',
+    fontSize: 17,
+    color: colors.text,
+  },
+  headerBackTitleVisible: false,
+};
 
 export default function AppNavigator() {
   const { token, isHydrated } = useAuthStore();
@@ -18,11 +34,11 @@ export default function AppNavigator() {
   if (!isHydrated) return null;
 
   return (
-    <Stack.Navigator>
+    <Stack.Navigator screenOptions={defaultStackOptions}>
       {!token ? (
         <>
           <Stack.Screen name="Login" component={LoginScreen} options={{ headerShown: false }} />
-          <Stack.Screen name="Register" component={RegisterScreen} />
+          <Stack.Screen name="Register" component={RegisterScreen} options={{ headerShown: false }} />
         </>
       ) : (
         <>
@@ -40,7 +56,7 @@ export default function AppNavigator() {
           <Stack.Screen 
             name="CreateGroup" 
             component={CreateGroupScreen} 
-            options={{ title: 'Create Group' }} 
+            options={{ title: 'New Group' }} 
           />
           <Stack.Screen 
             name="GroupList" 

@@ -21,6 +21,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useHeaderHeight } from '@react-navigation/elements';
 import { useNavigation } from '@react-navigation/native';
 import useChatStore from '../stores/chatStore';
+import { colors, radii, spacing } from '../theme/blushDusk';
 
 const EMPTY_ARRAY = [];
 
@@ -80,11 +81,11 @@ export default function ChatScreen({ route }) {
     navigation.setOptions({
       headerRight: () => (
         <View style={{ flexDirection: 'row' }}>
-          <TouchableOpacity onPress={() => setModalVisible(true)} style={{ marginRight: 15 }}>
-            <Ionicons name="call-outline" size={24} color="#007bff" />
+          <TouchableOpacity onPress={() => setModalVisible(true)} style={{ marginRight: 12 }}>
+            <Ionicons name="call-outline" size={22} color={colors.primary} />
           </TouchableOpacity>
-          <TouchableOpacity onPress={() => setModalVisible(true)} style={{ marginRight: 15 }}>
-            <Ionicons name="videocam-outline" size={24} color="#007bff" />
+          <TouchableOpacity onPress={() => setModalVisible(true)} style={{ marginRight: 12 }}>
+            <Ionicons name="videocam-outline" size={22} color={colors.primary} />
           </TouchableOpacity>
         </View>
       ),
@@ -174,7 +175,7 @@ export default function ChatScreen({ route }) {
             <Text style={styles.emptyText}>Start a conversation with {userName}</Text>
           ) : (
             <View style={styles.lockedHistoryContainer}>
-              <Ionicons name="shield-half" size={48} color="#ccc" style={{ marginBottom: 10 }} />
+              <Ionicons name="shield-half" size={48} color={colors.textSoft} style={{ marginBottom: 10 }} />
               <Text style={styles.lockedHistoryText}>Chat history is locked until you are friends.</Text>
             </View>
           )
@@ -183,29 +184,30 @@ export default function ChatScreen({ route }) {
 
       {isFriend ? (
         <View style={styles.inputWrapper}>
-          <View style={styles.inputContainer}>
+          <View style={styles.inputBar}>
             <TouchableOpacity onPress={pickImage} style={styles.attachButton} disabled={uploadingImage}>
-              <Ionicons name="add-circle-outline" size={28} color={uploadingImage ? '#ccc' : '#007bff'} />
+              <Ionicons name="image-outline" size={24} color={uploadingImage ? colors.textSoft : colors.secondary} />
             </TouchableOpacity>
             <TextInput
               style={styles.input}
               value={inputText}
               onChangeText={setInputText}
               placeholder="Message..."
+              placeholderTextColor={colors.textSoft}
               multiline
               blurOnSubmit={false}
               onSubmitEditing={isWeb ? handleSend : undefined}
             />
             <TouchableOpacity onPress={handleSend} disabled={!inputText.trim()}>
-              <View style={[styles.sendButton, !inputText.trim() && styles.disabledButton]}>
-                <Text style={styles.sendText}>Send</Text>
+              <View style={[styles.sendBtn, !inputText.trim() && styles.sendBtnDisabled]}>
+                <Ionicons name="send" size={18} color={colors.white} />
               </View>
             </TouchableOpacity>
           </View>
         </View>
       ) : (
         <View style={styles.lockBanner}>
-          <Ionicons name="lock-closed" size={24} color="#f0ad4e" />
+          <Ionicons name="lock-closed" size={22} color={colors.textMuted} />
           <Text style={styles.lockText}>
             You can only message users who are in your friends list.
           </Text>
@@ -214,6 +216,7 @@ export default function ChatScreen({ route }) {
             <TouchableOpacity
               style={[styles.bannerBtn, styles.acceptBannerBtn]}
               onPress={() => respondFriendRequest(incomingRequest.id || incomingRequest._id, 'accepted')}
+              activeOpacity={0.85}
             >
               <Text style={styles.bannerBtnText}>Accept Friend Request</Text>
             </TouchableOpacity>
@@ -223,8 +226,9 @@ export default function ChatScreen({ route }) {
             <TouchableOpacity
               style={[styles.bannerBtn, styles.pendingBannerBtn]}
               onPress={() => removeFriend(partnerId)}
+              activeOpacity={0.85}
             >
-              <Text style={[styles.bannerBtnText, { color: '#dc3545' }]}>Cancel Request</Text>
+              <Text style={[styles.bannerBtnText, { color: colors.danger }]}>Cancel Request</Text>
             </TouchableOpacity>
           )}
 
@@ -232,6 +236,7 @@ export default function ChatScreen({ route }) {
             <TouchableOpacity
               style={[styles.bannerBtn, styles.addBannerBtn]}
               onPress={() => sendFriendRequest(partnerId)}
+              activeOpacity={0.85}
             >
               <Text style={styles.bannerBtnText}>Add Friend to Chat</Text>
             </TouchableOpacity>
@@ -276,49 +281,43 @@ export default function ChatScreen({ route }) {
 }
 
 const styles = StyleSheet.create({
-  safeArea: { flex: 1, backgroundColor: '#fff' },
+  safeArea: { flex: 1, backgroundColor: colors.background },
   container: { flex: 1 },
-  inner: { flex: 1 },
-  messagesList: { paddingHorizontal: 16, paddingBottom: 20, paddingTop: 10 },
-  messageRow: { marginBottom: 10, flexDirection: 'row' },
+  inner: { flex: 1, backgroundColor: colors.background },
+  messagesList: { paddingHorizontal: spacing.lg, paddingBottom: 20, paddingTop: spacing.sm },
+  messageRow: { marginBottom: spacing.sm, flexDirection: 'row' },
   myMessageRow: { justifyContent: 'flex-end' },
   theirMessageRow: { justifyContent: 'flex-start' },
   messageBubble: {
     maxWidth: '80%',
-    paddingHorizontal: 15,
+    paddingHorizontal: 14,
     paddingVertical: 10,
-    borderRadius: 20,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 2,
-    elevation: 1,
+    borderRadius: radii.medium,
   },
-  myBubble: { backgroundColor: '#007bff', borderBottomRightRadius: 4 },
-  theirBubble: { backgroundColor: '#f1f1f1', borderBottomLeftRadius: 4 },
-  messageText: { fontSize: 16, lineHeight: 22 },
-  myMessageText: { color: '#fff' },
-  theirMessageText: { color: '#222' },
+  myBubble: { backgroundColor: colors.primarySoft, borderBottomRightRadius: 4 },
+  theirBubble: { backgroundColor: colors.surface, borderBottomLeftRadius: 4, borderWidth: 1, borderColor: colors.border },
+  messageText: { fontSize: 15, lineHeight: 21 },
+  myMessageText: { color: colors.text },
+  theirMessageText: { color: colors.text },
   timeText: { fontSize: 10, marginTop: 4, alignSelf: 'flex-end' },
-  myTime: { color: 'rgba(255,255,255,0.7)' },
-  theirTime: { color: '#999' },
+  myTime: { color: colors.textMuted },
+  theirTime: { color: colors.textSoft },
   imageWrapper: { position: 'relative' },
-  messageImage: { width: 220, height: 165, borderRadius: 12, marginBottom: 4, backgroundColor: '#eee' },
-  uploadingOverlay: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.4)', borderRadius: 12, justifyContent: 'center', alignItems: 'center' },
-  uploadingText: { color: '#fff', fontSize: 12, marginTop: 4 },
-  inputWrapper: { padding: 12, backgroundColor: '#fff', borderTopWidth: 1, borderTopColor: '#f0f0f0' },
-  inputContainer: { flexDirection: 'row', alignItems: 'flex-end', backgroundColor: '#f8f8f8', borderRadius: 25, paddingHorizontal: 15, paddingVertical: 8, borderWidth: 1, borderColor: '#eee' },
-  input: { flex: 1, maxHeight: 100, fontSize: 16, color: '#333', paddingTop: 8, paddingBottom: 8, outlineStyle: 'none' },
-  sendButton: { marginLeft: 10, backgroundColor: '#007bff', borderRadius: 20, paddingHorizontal: 18, paddingVertical: 8, marginBottom: 2 },
-  disabledButton: { backgroundColor: '#b0d4ff' },
-  sendText: { color: '#fff', fontWeight: 'bold' },
-  emptyText: { color: '#aaa', fontStyle: 'italic', textAlign: 'center', marginTop: 50 },
-  attachButton: { marginRight: 8, justifyContent: 'center', alignItems: 'center' },
-  modalOverlay: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.5)' },
-  modalContent: { backgroundColor: '#fff', padding: 20, borderRadius: 10, alignItems: 'center', width: '80%' },
-  modalText: { fontSize: 18, marginBottom: 20, textAlign: 'center' },
-  modalButton: { backgroundColor: '#007bff', paddingHorizontal: 20, paddingVertical: 10, borderRadius: 5 },
-  modalButtonText: { color: '#fff', fontSize: 16 },
+  messageImage: { width: 220, height: 165, borderRadius: radii.small, marginBottom: 4, backgroundColor: colors.surfaceMuted },
+  uploadingOverlay: { ...StyleSheet.absoluteFillObject, backgroundColor: colors.overlay, borderRadius: radii.small, justifyContent: 'center', alignItems: 'center' },
+  uploadingText: { color: colors.white, fontSize: 12, marginTop: 4 },
+  inputWrapper: { padding: spacing.sm, backgroundColor: colors.surface, borderTopWidth: 1, borderTopColor: colors.border },
+  inputBar: { flexDirection: 'row', alignItems: 'flex-end', backgroundColor: colors.surface, borderRadius: radii.pill, paddingHorizontal: spacing.md, paddingVertical: spacing.xs, borderWidth: 1, borderColor: colors.border },
+  input: { flex: 1, maxHeight: 100, fontSize: 15, color: colors.text, paddingTop: spacing.sm, paddingBottom: spacing.sm, outlineStyle: 'none', paddingLeft: spacing.xs },
+  sendBtn: { marginLeft: spacing.sm, backgroundColor: colors.primary, borderRadius: radii.pill, paddingHorizontal: 14, paddingVertical: 8, marginBottom: 2, alignItems: 'center', justifyContent: 'center' },
+  sendBtnDisabled: { opacity: 0.4 },
+  emptyText: { color: colors.textSoft, fontStyle: 'italic', textAlign: 'center', marginTop: 50 },
+  attachButton: { justifyContent: 'center', alignItems: 'center', padding: spacing.xs },
+  modalOverlay: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: colors.overlay },
+  modalContent: { backgroundColor: colors.surface, padding: spacing.xl, borderRadius: radii.medium, alignItems: 'center', width: '80%' },
+  modalText: { fontSize: 16, marginBottom: spacing.xl, textAlign: 'center', color: colors.text },
+  modalButton: { backgroundColor: colors.primary, paddingHorizontal: spacing.xl, paddingVertical: spacing.md, borderRadius: radii.small },
+  modalButtonText: { color: colors.white, fontSize: 15, fontWeight: '600' },
   
   // Friend System Locks
   lockedHistoryContainer: {
@@ -326,54 +325,50 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     marginTop: 100,
-    paddingHorizontal: 30,
+    paddingHorizontal: spacing.xxl,
   },
   lockedHistoryText: {
     fontSize: 15,
-    color: '#999',
+    color: colors.textMuted,
     textAlign: 'center',
     lineHeight: 22,
   },
   lockBanner: {
-    padding: 20,
-    backgroundColor: '#fffbeb',
+    padding: spacing.xl,
+    backgroundColor: colors.backgroundAlt,
     borderTopWidth: 1,
-    borderTopColor: '#fef3c7',
+    borderTopColor: colors.border,
     alignItems: 'center',
     justifyContent: 'center',
   },
   lockText: {
-    color: '#92400e',
+    color: colors.textMuted,
     fontSize: 14,
     fontWeight: '500',
     textAlign: 'center',
-    marginTop: 8,
-    marginBottom: 12,
+    marginTop: spacing.sm,
+    marginBottom: spacing.md,
     lineHeight: 20,
   },
   bannerBtn: {
-    paddingVertical: 12,
-    paddingHorizontal: 24,
-    borderRadius: 25,
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.xxl,
+    borderRadius: radii.pill,
     alignItems: 'center',
     justifyContent: 'center',
     width: '100%',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 2,
+    minHeight: 44,
   },
   addBannerBtn: {
-    backgroundColor: '#007bff',
+    backgroundColor: colors.primary,
   },
   acceptBannerBtn: {
-    backgroundColor: '#28a745',
+    backgroundColor: colors.success,
   },
   pendingBannerBtn: {
-    backgroundColor: '#e9ecef',
+    backgroundColor: colors.surface,
     borderWidth: 1,
-    borderColor: '#dee2e6',
+    borderColor: colors.border,
   },
   bannerBtnText: {
     color: '#fff',

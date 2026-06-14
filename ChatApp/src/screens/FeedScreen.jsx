@@ -10,7 +10,6 @@ import {
   FlatList,
   Modal,
   ActivityIndicator,
-  Alert,
   Dimensions,
   SafeAreaView,
   KeyboardAvoidingView,
@@ -23,6 +22,8 @@ import useChatStore from '../stores/chatStore';
 import { useAuthStore } from '../stores/authStore';
 import { useFocusEffect } from '@react-navigation/native';
 import { uploadImage } from '../api/api';
+import { colors, radii, spacing } from '../theme/blushDusk';
+import Avatar from '../components/ui/Avatar';
 
 const { width, height } = Dimensions.get('window');
 
@@ -260,6 +261,16 @@ export default function FeedScreen({ navigation }) {
     }
   }, [activeStoryGroup, activeStoryIndex]);
 
+  // Refresh feed when the Feed tab is pressed while already on the screen
+  useEffect(() => {
+    const unsubscribe = navigation.addListener('tabPress', (e) => {
+      if (navigation.isFocused()) {
+        handleRefresh();
+      }
+    });
+    return unsubscribe;
+  }, [navigation]);
+
   // Post images selection
   const handlePickPostImages = async () => {
     const result = await ImagePicker.launchImageLibraryAsync({
@@ -491,16 +502,16 @@ export default function FeedScreen({ navigation }) {
           {currentUserId === (postUser.id || postUser._id) && (
             <View style={{ flexDirection: 'row', alignItems: 'center' }}>
               <TouchableOpacity
-                style={{ padding: 6, marginRight: 8 }}
+                style={{ padding: spacing.xs, marginRight: spacing.sm }}
                 onPress={() => handleStartEditPost(item)}
               >
-                <Ionicons name="create-outline" size={20} color="#1877f2" />
+                <Ionicons name="create-outline" size={20} color={colors.primary} />
               </TouchableOpacity>
               <TouchableOpacity
-                style={{ padding: 6 }}
+                style={{ padding: spacing.xs }}
                 onPress={() => handleDeletePost(postId)}
               >
-                <Ionicons name="trash-outline" size={20} color="#ff4d4d" />
+                <Ionicons name="trash-outline" size={20} color={colors.danger} />
               </TouchableOpacity>
             </View>
           )}
@@ -849,20 +860,20 @@ export default function FeedScreen({ navigation }) {
                     <Text style={styles.mediaOptionText}>Photos</Text>
                   </TouchableOpacity>
 
-                  <TouchableOpacity
-                    style={[styles.publishPostBtn, isPosting && { backgroundColor: '#a0cfff' }]}
-                    disabled={isPosting}
-                    onPress={handleCreatePost}
-                  >
-                    {isPosting ? (
-                      <ActivityIndicator size="small" color="#fff" />
-                    ) : (
-                      <>
-                        <Ionicons name="paper-plane" size={16} color="#fff" style={{ marginRight: 6 }} />
-                        <Text style={styles.publishPostText}>Post</Text>
-                      </>
-                    )}
-                  </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.publishPostBtn, isPosting && { opacity: 0.5 }]}
+                disabled={isPosting}
+                onPress={handleCreatePost}
+              >
+                {isPosting ? (
+                  <ActivityIndicator size="small" color={colors.white} />
+                ) : (
+                  <>
+                    <Ionicons name="paper-plane" size={16} color={colors.white} style={{ marginRight: spacing.xs }} />
+                    <Text style={styles.publishPostText}>Post</Text>
+                  </>
+                )}
+              </TouchableOpacity>
                 </View>
               </View>
 
@@ -1264,35 +1275,36 @@ export default function FeedScreen({ navigation }) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f4f6f9',
+    backgroundColor: colors.background,
     paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight : 0,
   },
   suggestionsContainer: {
-    backgroundColor: '#fff',
-    paddingVertical: 15,
-    paddingHorizontal: 10,
-    marginBottom: 10,
+    backgroundColor: colors.surface,
+    paddingVertical: spacing.lg,
+    paddingHorizontal: spacing.sm,
+    marginBottom: spacing.sm,
     borderBottomWidth: 1,
-    borderBottomColor: '#eef1f6',
+    borderBottomColor: colors.border,
   },
   suggestionsHeader: {
-    marginBottom: 10,
+    marginBottom: spacing.sm,
+    paddingHorizontal: spacing.xs,
   },
   suggestionsTitle: {
     fontSize: 16,
-    fontWeight: 'bold',
-    color: '#1c1e21',
+    fontWeight: '600',
+    color: colors.text,
   },
   suggestionsScroll: {
-    paddingRight: 10,
+    paddingRight: spacing.sm,
   },
   suggestionCard: {
-    backgroundColor: '#fff',
+    backgroundColor: colors.surface,
     borderWidth: 1,
-    borderColor: '#e4e6eb',
-    borderRadius: 8,
-    padding: 12,
-    marginRight: 12,
+    borderColor: colors.border,
+    borderRadius: radii.medium,
+    padding: spacing.md,
+    marginRight: spacing.md,
     width: 130,
     alignItems: 'center',
   },
@@ -1300,55 +1312,56 @@ const styles = StyleSheet.create({
     width: 55,
     height: 55,
     borderRadius: 27.5,
-    marginBottom: 8,
+    marginBottom: spacing.sm,
   },
   suggestionName: {
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '600',
-    color: '#1c1e21',
+    color: colors.text,
     textAlign: 'center',
     marginBottom: 2,
   },
   suggestionBio: {
     fontSize: 11,
-    color: '#606770',
+    color: colors.textSoft,
     textAlign: 'center',
-    marginBottom: 10,
+    marginBottom: spacing.sm,
     height: 15,
   },
   addFriendBtn: {
-    backgroundColor: '#1877f2',
+    backgroundColor: colors.primary,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: 6,
-    paddingHorizontal: 12,
-    borderRadius: 6,
+    paddingHorizontal: spacing.md,
+    borderRadius: radii.pill,
     width: '100%',
+    minHeight: 32,
   },
   addFriendText: {
-    color: '#fff',
+    color: colors.white,
     fontSize: 12,
-    fontWeight: 'bold',
+    fontWeight: '600',
   },
   storiesContainer: {
-    paddingVertical: 15,
-    backgroundColor: '#fff',
+    paddingVertical: spacing.lg,
+    backgroundColor: colors.surface,
     borderBottomWidth: 1,
-    borderBottomColor: '#eef1f6',
-    marginBottom: 10,
+    borderBottomColor: colors.border,
+    marginBottom: spacing.sm,
   },
   storyCircleContainer: {
     alignItems: 'center',
-    marginRight: 15,
-    width: 70,
+    marginRight: spacing.lg,
+    width: 68,
   },
   addStoryOutline: {
     width: 60,
     height: 60,
     borderRadius: 30,
     borderWidth: 2,
-    borderColor: '#007bff',
+    borderColor: colors.secondary,
     justifyContent: 'center',
     alignItems: 'center',
     position: 'relative',
@@ -1362,21 +1375,21 @@ const styles = StyleSheet.create({
     position: 'absolute',
     bottom: -2,
     right: -2,
-    backgroundColor: '#007bff',
+    backgroundColor: colors.secondary,
     width: 20,
     height: 20,
     borderRadius: 10,
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 2,
-    borderColor: '#fff',
+    borderColor: colors.surface,
   },
   storyRing: {
     width: 60,
     height: 60,
     borderRadius: 30,
     borderWidth: 2.5,
-    borderColor: '#007bff',
+    borderColor: colors.secondary,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -1386,35 +1399,32 @@ const styles = StyleSheet.create({
     borderRadius: 25,
   },
   storyName: {
-    marginTop: 6,
-    fontSize: 12,
-    color: '#333',
+    marginTop: spacing.xs,
+    fontSize: 11,
+    color: colors.textMuted,
     textAlign: 'center',
     fontWeight: '500',
   },
   avatarPlaceholder: {
-    backgroundColor: '#007bff',
+    backgroundColor: colors.primarySoft,
     justifyContent: 'center',
     alignItems: 'center',
   },
   avatarText: {
-    color: '#fff',
+    color: colors.primary,
     fontSize: 16,
-    fontWeight: 'bold',
+    fontWeight: '700',
   },
 
   // Create Post
   createPostCard: {
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    padding: 15,
-    marginHorizontal: 10,
-    marginBottom: 10,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 5,
-    elevation: 2,
+    backgroundColor: colors.surface,
+    borderRadius: radii.medium,
+    padding: spacing.lg,
+    marginHorizontal: spacing.sm,
+    marginBottom: spacing.sm,
+    borderWidth: 1,
+    borderColor: colors.border,
   },
   createPostRow: {
     flexDirection: 'row',
@@ -1427,38 +1437,39 @@ const styles = StyleSheet.create({
   },
   createPostInput: {
     flex: 1,
-    marginLeft: 12,
-    fontSize: 15,
-    color: '#333',
-    paddingTop: 8,
+    marginLeft: spacing.md,
+    fontSize: 14,
+    color: colors.text,
+    paddingTop: spacing.sm,
     minHeight: 44,
+    outlineStyle: 'none',
   },
   imagePreviewScroll: {
-    marginTop: 12,
+    marginTop: spacing.md,
     flexDirection: 'row',
   },
   imagePreviewItem: {
     position: 'relative',
-    marginRight: 10,
-    borderRadius: 8,
+    marginRight: spacing.sm,
+    borderRadius: radii.small,
     overflow: 'hidden',
   },
   imagePreviewSmall: {
     width: 80,
     height: 80,
-    borderRadius: 8,
+    borderRadius: radii.small,
   },
   removeImageBtnSmall: {
     position: 'absolute',
     top: 2,
     right: 2,
     backgroundColor: 'rgba(255, 255, 255, 0.8)',
-    borderRadius: 10,
+    borderRadius: radii.small,
   },
   createPostDivider: {
     height: 1,
-    backgroundColor: '#eee',
-    marginVertical: 12,
+    backgroundColor: colors.border,
+    marginVertical: spacing.md,
   },
   createPostActions: {
     flexDirection: 'row',
@@ -1468,49 +1479,47 @@ const styles = StyleSheet.create({
   mediaOptionBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 6,
-    paddingHorizontal: 12,
-    borderRadius: 20,
-    backgroundColor: '#f1f8e9',
+    paddingVertical: spacing.xs,
+    paddingHorizontal: spacing.md,
+    borderRadius: radii.pill,
+    backgroundColor: colors.background,
   },
   mediaOptionText: {
-    marginLeft: 6,
-    color: '#4caf50',
+    marginLeft: spacing.xs,
+    color: colors.secondary,
     fontWeight: '600',
     fontSize: 13,
   },
   publishPostBtn: {
-    backgroundColor: '#007bff',
+    backgroundColor: colors.primary,
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 8,
-    paddingHorizontal: 20,
-    borderRadius: 20,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.xl,
+    borderRadius: radii.pill,
+    minHeight: 36,
   },
   publishPostText: {
-    color: '#fff',
-    fontWeight: 'bold',
+    color: colors.white,
+    fontWeight: '600',
     fontSize: 14,
   },
 
   // Post Card
   postCard: {
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    padding: 15,
-    marginHorizontal: 10,
-    marginBottom: 10,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 5,
-    elevation: 2,
+    backgroundColor: colors.surface,
+    borderRadius: radii.medium,
+    padding: spacing.lg,
+    marginHorizontal: spacing.sm,
+    marginBottom: spacing.sm,
+    borderWidth: 1,
+    borderColor: colors.border,
     position: 'relative',
   },
   postHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 12,
+    marginBottom: spacing.md,
   },
   postAvatar: {
     width: 44,
@@ -1518,48 +1527,48 @@ const styles = StyleSheet.create({
     borderRadius: 22,
   },
   postHeaderInfo: {
-    marginLeft: 12,
+    marginLeft: spacing.md,
     flex: 1,
   },
   postAuthor: {
     fontSize: 15,
-    fontWeight: 'bold',
-    color: '#1a1a1a',
+    fontWeight: '600',
+    color: colors.text,
   },
   postTime: {
-    fontSize: 12,
-    color: '#777',
+    fontSize: 11,
+    color: colors.textSoft,
     marginTop: 2,
   },
   postContent: {
-    fontSize: 15,
-    color: '#333',
-    lineHeight: 21,
-    marginBottom: 12,
+    fontSize: 14,
+    color: colors.text,
+    lineHeight: 20,
+    marginBottom: spacing.md,
   },
   postImage: {
     width: '100%',
     height: 250,
-    borderRadius: 8,
-    marginBottom: 12,
+    borderRadius: radii.small,
+    marginBottom: spacing.md,
   },
 
   // Carousel Layout
   carouselContainer: {
     width: '100%',
-    marginBottom: 12,
+    marginBottom: spacing.md,
   },
   carouselImage: {
     width: width - 50,
     height: 250,
-    borderRadius: 8,
-    marginRight: 10,
+    borderRadius: radii.small,
+    marginRight: spacing.sm,
   },
   paginationDots: {
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
-    marginTop: 8,
+    marginTop: spacing.sm,
   },
   paginationDot: {
     width: 6,
@@ -1568,21 +1577,21 @@ const styles = StyleSheet.create({
     marginHorizontal: 4,
   },
   paginationDotActive: {
-    backgroundColor: '#007bff',
+    backgroundColor: colors.primary,
     width: 12,
   },
   paginationDotInactive: {
-    backgroundColor: '#ccc',
+    backgroundColor: colors.border,
   },
 
   // Shared posts
   sharedPostContainer: {
     borderWidth: 1,
-    borderColor: '#e1e8ed',
-    borderRadius: 8,
-    padding: 12,
-    backgroundColor: '#f8fafc',
-    marginBottom: 12,
+    borderColor: colors.border,
+    borderRadius: radii.small,
+    padding: spacing.md,
+    backgroundColor: colors.background,
+    marginBottom: spacing.md,
   },
   sharedAvatar: {
     width: 36,
@@ -1591,19 +1600,19 @@ const styles = StyleSheet.create({
   },
   sharedAuthor: {
     fontSize: 14,
-    fontWeight: 'bold',
-    color: '#333',
+    fontWeight: '600',
+    color: colors.text,
   },
   sharedContent: {
     fontSize: 14,
-    color: '#444',
+    color: colors.text,
     lineHeight: 19,
-    marginBottom: 8,
+    marginBottom: spacing.sm,
   },
   sharedImage: {
     width: '100%',
     height: 180,
-    borderRadius: 6,
+    borderRadius: radii.small,
   },
 
   // Post Action Row
@@ -1611,9 +1620,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     borderBottomWidth: 1,
-    borderBottomColor: '#eee',
-    paddingBottom: 8,
-    marginBottom: 8,
+    borderBottomColor: colors.border,
+    paddingBottom: spacing.sm,
+    marginBottom: spacing.sm,
   },
   counterItem: {
     flexDirection: 'row',
@@ -1624,46 +1633,46 @@ const styles = StyleSheet.create({
   },
   counterText: {
     fontSize: 12,
-    color: '#777',
-    marginLeft: 4,
+    color: colors.textMuted,
+    marginLeft: spacing.xs,
   },
   actionsBar: {
     flexDirection: 'row',
     justifyContent: 'space-around',
     borderBottomWidth: 1,
-    borderBottomColor: '#eee',
-    paddingBottom: 8,
-    marginBottom: 8,
+    borderBottomColor: colors.border,
+    paddingBottom: spacing.sm,
+    marginBottom: spacing.sm,
   },
   actionBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 6,
+    paddingVertical: spacing.xs,
   },
   actionBtnText: {
-    marginLeft: 6,
+    marginLeft: spacing.xs,
     fontSize: 13,
-    color: '#666',
+    color: colors.textMuted,
   },
 
   // Reaction Picker Container
   reactionPickerContainer: {
     position: 'absolute',
     bottom: 50,
-    left: 20,
-    backgroundColor: '#fff',
+    left: spacing.xl,
+    backgroundColor: colors.surface,
     flexDirection: 'row',
-    borderRadius: 30,
-    padding: 8,
-    shadowColor: '#000',
+    borderRadius: radii.pill,
+    padding: spacing.sm,
+    shadowColor: '#382F38',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.15,
+    shadowOpacity: 0.12,
     shadowRadius: 6,
     elevation: 5,
     zIndex: 100,
   },
   reactionPickerEmojiBtn: {
-    paddingHorizontal: 8,
+    paddingHorizontal: spacing.sm,
   },
   reactionPickerEmoji: {
     fontSize: 24,
@@ -1671,12 +1680,13 @@ const styles = StyleSheet.create({
 
   // Comments Section
   commentsSection: {
-    marginTop: 8,
-    backgroundColor: '#fcfdfd',
-    paddingTop: 8,
+    marginTop: spacing.sm,
+    backgroundColor: colors.background,
+    paddingTop: spacing.sm,
+    borderRadius: radii.small,
   },
   commentContainer: {
-    marginBottom: 10,
+    marginBottom: spacing.sm,
     position: 'relative',
   },
   commentItem: {
@@ -1690,74 +1700,69 @@ const styles = StyleSheet.create({
   },
   commentBubble: {
     flex: 1,
-    marginLeft: 10,
-    backgroundColor: '#f0f2f5',
-    borderRadius: 12,
-    padding: 10,
+    marginLeft: spacing.sm,
+    backgroundColor: colors.surfaceMuted,
+    borderRadius: radii.small,
+    padding: spacing.sm,
     position: 'relative',
   },
   commentAuthor: {
     fontSize: 13,
-    fontWeight: 'bold',
-    color: '#1a1a1a',
+    fontWeight: '600',
+    color: colors.text,
     marginBottom: 2,
   },
   commentText: {
-    fontSize: 13.5,
-    color: '#333',
+    fontSize: 13,
+    color: colors.text,
     lineHeight: 18,
   },
   commentReactionsBadge: {
     position: 'absolute',
     bottom: -8,
     right: 10,
-    backgroundColor: '#fff',
+    backgroundColor: colors.surface,
     borderRadius: 10,
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 4,
     paddingVertical: 2,
     borderWidth: 0.5,
-    borderColor: '#e1e8ed',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 2,
-    elevation: 2,
+    borderColor: colors.border,
   },
   commentReactionsBadgeText: {
     fontSize: 10,
-    color: '#666',
+    color: colors.textMuted,
     marginLeft: 2,
   },
   commentActionRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginLeft: 52,
-    marginTop: 4,
+    marginLeft: 48,
+    marginTop: spacing.xs,
   },
   commentActionText: {
     fontSize: 12,
-    color: '#666',
-    marginRight: 15,
+    color: colors.textMuted,
+    marginRight: spacing.lg,
   },
   commentReactionPicker: {
     position: 'absolute',
     bottom: 24,
     left: 0,
-    backgroundColor: '#fff',
+    backgroundColor: colors.surface,
     flexDirection: 'row',
-    borderRadius: 20,
-    padding: 4,
-    shadowColor: '#000',
+    borderRadius: radii.pill,
+    padding: spacing.xs,
+    shadowColor: '#382F38',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.15,
+    shadowOpacity: 0.12,
     shadowRadius: 4,
     elevation: 4,
     zIndex: 200,
   },
   commentReactionPickerEmojiBtn: {
-    paddingHorizontal: 4,
+    paddingHorizontal: spacing.xs,
   },
   commentReactionPickerEmoji: {
     fontSize: 18,
@@ -1765,42 +1770,43 @@ const styles = StyleSheet.create({
   commentInputRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginTop: 10,
+    marginTop: spacing.sm,
   },
   commentInput: {
     flex: 1,
     borderWidth: 1,
-    borderColor: '#e1e8ed',
-    borderRadius: 20,
-    paddingHorizontal: 15,
-    paddingVertical: 8,
-    fontSize: 14,
-    backgroundColor: '#fff',
-    color: '#333',
+    borderColor: colors.border,
+    borderRadius: radii.pill,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.sm,
+    fontSize: 13,
+    backgroundColor: colors.surface,
+    color: colors.text,
     height: 36,
+    outlineStyle: 'none',
   },
   commentSendBtn: {
-    backgroundColor: '#007bff',
+    backgroundColor: colors.primary,
     width: 36,
     height: 36,
     borderRadius: 18,
     justifyContent: 'center',
     alignItems: 'center',
-    marginLeft: 8,
+    marginLeft: spacing.sm,
   },
 
   // Empty List
   emptyContainer: {
     alignItems: 'center',
     justifyContent: 'center',
-    padding: 40,
-    marginTop: 30,
+    padding: spacing.section,
+    marginTop: spacing.xxl,
   },
   emptyText: {
-    color: '#888',
+    color: colors.textMuted,
     fontSize: 14,
     textAlign: 'center',
-    marginTop: 10,
+    marginTop: spacing.sm,
   },
 
   // Story Viewer Overlay
@@ -1817,13 +1823,13 @@ const styles = StyleSheet.create({
     right: 0,
     zIndex: 10,
     backgroundColor: 'rgba(0,0,0,0.4)',
-    paddingHorizontal: 15,
+    paddingHorizontal: spacing.lg,
     paddingTop: Platform.OS === 'ios' ? 10 : 30,
   },
   progressBarRow: {
     flexDirection: 'row',
-    marginBottom: 10,
-    paddingHorizontal: 5,
+    marginBottom: spacing.sm,
+    paddingHorizontal: spacing.xs,
   },
   progressBarItem: {
     flex: 1,
@@ -1841,7 +1847,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingBottom: 10,
+    paddingBottom: spacing.sm,
   },
   viewerAvatar: {
     width: 36,
@@ -1850,13 +1856,13 @@ const styles = StyleSheet.create({
   },
   viewerAuthorName: {
     color: '#fff',
-    fontWeight: 'bold',
+    fontWeight: '600',
     fontSize: 15,
-    marginLeft: 12,
+    marginLeft: spacing.md,
     flex: 1,
   },
   closeStoryBtn: {
-    padding: 5,
+    padding: spacing.xs,
   },
   storyViewerImage: {
     width: width,
@@ -1865,11 +1871,11 @@ const styles = StyleSheet.create({
   captionContainer: {
     position: 'absolute',
     bottom: 100,
-    left: 20,
-    right: 20,
+    left: spacing.xl,
+    right: spacing.xl,
     backgroundColor: 'rgba(0,0,0,0.6)',
-    padding: 15,
-    borderRadius: 10,
+    padding: spacing.lg,
+    borderRadius: radii.small,
   },
   captionText: {
     color: '#fff',
@@ -1879,19 +1885,19 @@ const styles = StyleSheet.create({
   seenByContainer: {
     position: 'absolute',
     bottom: 40,
-    left: 20,
+    left: spacing.xl,
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: 'rgba(0,0,0,0.6)',
-    paddingVertical: 8,
-    paddingHorizontal: 16,
-    borderRadius: 20,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.lg,
+    borderRadius: radii.pill,
     alignSelf: 'center',
     zIndex: 15,
   },
   seenByText: {
     color: '#fff',
-    fontWeight: 'bold',
+    fontWeight: '600',
     fontSize: 13,
   },
   navOverlayRow: {
@@ -1907,15 +1913,15 @@ const styles = StyleSheet.create({
   // Global Modals Overlay
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
+    backgroundColor: colors.overlay,
     justifyContent: 'flex-end',
   },
   modalContent: {
-    backgroundColor: '#fff',
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    paddingTop: 15,
-    paddingHorizontal: 20,
+    backgroundColor: colors.surface,
+    borderTopLeftRadius: radii.large,
+    borderTopRightRadius: radii.large,
+    paddingTop: spacing.lg,
+    paddingHorizontal: spacing.xl,
     paddingBottom: Platform.OS === 'ios' ? 40 : 25,
     maxHeight: '60%',
   },
@@ -1923,22 +1929,22 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingBottom: 15,
+    paddingBottom: spacing.lg,
     borderBottomWidth: 1,
-    borderBottomColor: '#eee',
-    marginBottom: 10,
+    borderBottomColor: colors.border,
+    marginBottom: spacing.sm,
   },
   modalTitle: {
     fontSize: 16,
-    fontWeight: 'bold',
-    color: '#1a1a1a',
+    fontWeight: '600',
+    color: colors.text,
   },
   reactantRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 12,
+    paddingVertical: spacing.md,
     borderBottomWidth: 0.5,
-    borderBottomColor: '#f0f0f0',
+    borderBottomColor: colors.border,
   },
   reactantAvatar: {
     width: 36,
@@ -1946,10 +1952,10 @@ const styles = StyleSheet.create({
     borderRadius: 18,
   },
   reactantName: {
-    fontSize: 14.5,
-    color: '#333',
+    fontSize: 14,
+    color: colors.text,
     fontWeight: '500',
-    marginLeft: 12,
+    marginLeft: spacing.md,
     flex: 1,
   },
   reactantEmoji: {
@@ -1957,47 +1963,47 @@ const styles = StyleSheet.create({
   },
   premiumModalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.6)',
+    backgroundColor: colors.overlay,
     justifyContent: 'center',
     alignItems: 'center',
   },
   premiumModalContent: {
-    backgroundColor: '#fff',
-    borderRadius: 20,
-    padding: 24,
+    backgroundColor: colors.surface,
+    borderRadius: radii.medium,
+    padding: spacing.xxl,
     width: '85%',
     maxWidth: 400,
-    shadowColor: '#000',
+    shadowColor: '#382F38',
     shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.15,
+    shadowOpacity: 0.14,
     shadowRadius: 20,
     elevation: 10,
     alignItems: 'center',
   },
   premiumModalTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#1a1a1a',
-    marginBottom: 12,
+    fontSize: 18,
+    fontWeight: '700',
+    color: colors.text,
+    marginBottom: spacing.md,
     textAlign: 'center',
   },
   premiumModalMessage: {
-    fontSize: 15,
-    color: '#555',
+    fontSize: 14,
+    color: colors.textMuted,
     textAlign: 'center',
-    marginBottom: 20,
+    marginBottom: spacing.xl,
     lineHeight: 22,
   },
   premiumModalInput: {
     width: '100%',
-    backgroundColor: '#f5f5f5',
+    backgroundColor: colors.background,
     borderWidth: 1,
-    borderColor: '#e5e5e5',
-    borderRadius: 12,
-    padding: 14,
+    borderColor: colors.border,
+    borderRadius: radii.small,
+    padding: spacing.md,
     fontSize: 15,
-    color: '#333',
-    marginBottom: 20,
+    color: colors.text,
+    marginBottom: spacing.xl,
     outlineStyle: 'none',
   },
   premiumModalButtons: {
@@ -2006,28 +2012,28 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
   },
   premiumModalBtn: {
-    paddingVertical: 12,
-    paddingHorizontal: 20,
-    borderRadius: 12,
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.xl,
+    borderRadius: radii.small,
     alignItems: 'center',
     justifyContent: 'center',
     minWidth: 100,
-    marginLeft: 10,
+    marginLeft: spacing.sm,
   },
   premiumModalCancelBtn: {
-    backgroundColor: '#f5f5f5',
+    backgroundColor: colors.backgroundAlt,
   },
   premiumModalConfirmBtn: {
-    backgroundColor: '#007bff',
+    backgroundColor: colors.primary,
   },
   premiumModalCancelText: {
-    color: '#555',
+    color: colors.text,
     fontWeight: '600',
-    fontSize: 15,
+    fontSize: 14,
   },
   premiumModalConfirmText: {
-    color: '#fff',
+    color: colors.white,
     fontWeight: '600',
-    fontSize: 15,
+    fontSize: 14,
   },
 });

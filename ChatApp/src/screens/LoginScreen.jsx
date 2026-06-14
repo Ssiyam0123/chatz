@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, KeyboardAvoidingView, Platform, ScrollView, SafeAreaView } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, KeyboardAvoidingView, Platform, ScrollView, SafeAreaView } from 'react-native';
 import { useAuthStore } from '../stores/authStore';
 import { Ionicons } from '@expo/vector-icons';
+import { colors, radii, spacing } from '../theme/blushDusk';
 
 export default function LoginScreen({ navigation }) {
   const [email, setEmail] = useState('');
@@ -10,40 +11,55 @@ export default function LoginScreen({ navigation }) {
   const login = useAuthStore((state) => state.login);
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: '#fff' }}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }}>
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
         <ScrollView contentContainerStyle={styles.inner} keyboardShouldPersistTaps="handled">
-          <Text style={styles.title}>Welcome Back</Text>
-          
-          <TextInput
-            style={styles.input}
-            placeholder="Email"
-            autoCapitalize="none"
-            keyboardType="email-address"
-            autoComplete="email"
-            value={email}
-            onChangeText={setEmail}
-          />
-
-          <View style={styles.passContainer}>
-            <TextInput
-              style={{ flex: 1, padding: 12, fontSize: 16 }}
-              placeholder="Password"
-              secureTextEntry={!showPass}
-              value={password}
-              onChangeText={setPassword}
-            />
-            <TouchableOpacity onPress={() => setShowPass(!showPass)} style={{ padding: 10 }}>
-              <Ionicons name={showPass ? "eye-off" : "eye"} size={22} color="#666" />
-            </TouchableOpacity>
+          {/* Brand mark */}
+          <View style={styles.brandRow}>
+            <View style={styles.brandDot} />
+            <Text style={styles.brandName}>Chat-Z</Text>
           </View>
 
-          <TouchableOpacity style={styles.button} onPress={() => login(email, password)}>
-            <Text style={styles.buttonText}>Login</Text>
+          <Text style={styles.welcomeTitle}>Welcome back</Text>
+          <Text style={styles.welcomeSub}>Sign in to continue with friends.</Text>
+
+          <View style={styles.inputGroup}>
+            <View style={styles.inputContainer}>
+              <TextInput
+                style={styles.input}
+                placeholder="Email"
+                placeholderTextColor={colors.textSoft}
+                autoCapitalize="none"
+                keyboardType="email-address"
+                autoComplete="email"
+                value={email}
+                onChangeText={setEmail}
+              />
+            </View>
+
+            <View style={styles.passContainer}>
+              <TextInput
+                style={styles.passInput}
+                placeholder="Password"
+                placeholderTextColor={colors.textSoft}
+                secureTextEntry={!showPass}
+                value={password}
+                onChangeText={setPassword}
+              />
+              <TouchableOpacity onPress={() => setShowPass(!showPass)} style={styles.eyeBtn} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+                <Ionicons name={showPass ? "eye-off" : "eye"} size={22} color={colors.textMuted} />
+              </TouchableOpacity>
+            </View>
+          </View>
+
+          <TouchableOpacity style={styles.button} onPress={() => login(email, password)} activeOpacity={0.85}>
+            <Text style={styles.buttonText}>Sign In</Text>
           </TouchableOpacity>
 
-          <TouchableOpacity onPress={() => navigation.navigate('Register')} style={{ marginTop: 20 }}>
-            <Text style={{ textAlign: 'center', color: '#007bff' }}>Don't have an account? Sign up</Text>
+          <TouchableOpacity onPress={() => navigation.navigate('Register')} style={styles.linkWrap} hitSlop={{ top: 10, bottom: 10 }}>
+            <Text style={styles.linkText}>
+              Don't have an account? <Text style={styles.linkHighlight}>Sign up</Text>
+            </Text>
           </TouchableOpacity>
         </ScrollView>
       </KeyboardAvoidingView>
@@ -52,10 +68,86 @@ export default function LoginScreen({ navigation }) {
 }
 
 const styles = StyleSheet.create({
-  inner: { flexGrow: 1, justifyContent: 'center', padding: 20 },
-  title: { fontSize: 32, fontWeight: 'bold', marginBottom: 40, textAlign: 'center' },
-  input: { borderWidth: 1, borderColor: '#ccc', padding: 12, borderRadius: 10, marginBottom: 16, fontSize: 16 },
-  passContainer: { flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderColor: '#ccc', borderRadius: 10, marginBottom: 20 },
-  button: { backgroundColor: '#007bff', padding: 16, borderRadius: 10, alignItems: 'center' },
-  buttonText: { color: '#fff', fontWeight: 'bold', fontSize: 18 },
+  inner: { flexGrow: 1, justifyContent: 'center', padding: spacing.xxl },
+  brandRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: spacing.section,
+  },
+  brandDot: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: colors.primary,
+    marginRight: spacing.sm,
+  },
+  brandName: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: colors.primary,
+    letterSpacing: 1,
+  },
+  welcomeTitle: {
+    fontSize: 28,
+    fontWeight: '700',
+    color: colors.text,
+    textAlign: 'center',
+    marginBottom: spacing.sm,
+  },
+  welcomeSub: {
+    fontSize: 15,
+    color: colors.textMuted,
+    textAlign: 'center',
+    marginBottom: spacing.section,
+    lineHeight: 22,
+  },
+  inputGroup: {
+    marginBottom: spacing.xl,
+  },
+  inputContainer: {
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radii.small,
+    paddingHorizontal: spacing.lg,
+    marginBottom: spacing.md,
+  },
+  input: {
+    fontSize: 15,
+    color: colors.text,
+    paddingVertical: spacing.md,
+    lineHeight: 20,
+    outlineStyle: 'none',
+  },
+  passContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radii.small,
+    paddingHorizontal: spacing.lg,
+  },
+  passInput: {
+    flex: 1,
+    fontSize: 15,
+    color: colors.text,
+    paddingVertical: spacing.md,
+    lineHeight: 20,
+    outlineStyle: 'none',
+  },
+  eyeBtn: { padding: spacing.sm },
+  button: {
+    backgroundColor: colors.primary,
+    paddingVertical: 15,
+    borderRadius: radii.small,
+    alignItems: 'center',
+    minHeight: 50,
+    justifyContent: 'center',
+  },
+  buttonText: { color: colors.white, fontWeight: '600', fontSize: 16 },
+  linkWrap: { marginTop: spacing.xl, alignItems: 'center' },
+  linkText: { textAlign: 'center', color: colors.textMuted, fontSize: 14 },
+  linkHighlight: { color: colors.primary, fontWeight: '600' },
 });

@@ -7,7 +7,7 @@ const router = express.Router();
 
 router.get('/profile', protect, getProfile);
 router.get('/profile/:userId', protect, getUserById);
-router.put('/profile', protect, upload.single('avatar'), updateProfile);
+router.put('/profile', protect, upload.fields([{ name: 'avatar', maxCount: 1 }, { name: 'coverPhoto', maxCount: 1 }]), updateProfile);
 router.put('/public-key', protect, registerPublicKey);
 
 export default router;

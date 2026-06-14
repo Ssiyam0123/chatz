@@ -45,6 +45,10 @@ async function seed() {
     await sequelize.authenticate();
     console.log('🔌 Connected to database for seeding...');
 
+    console.log('Syncing database schema for seeding...');
+    await sequelize.sync({ force: true });
+    console.log('✅ Database schema synced.');
+
     // We don't drop existing users/posts to prevent deleting user's own tests.
     // Instead we just insert the new fake data.
 

@@ -18,6 +18,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
 import useChatStore from '../stores/chatStore';
 import { useAuthStore } from '../stores/authStore';
+import { colors, radii, spacing } from '../theme/blushDusk';
 
 export default function PeopleScreen({ navigation }) {
   const { 
@@ -36,7 +37,7 @@ export default function PeopleScreen({ navigation }) {
   } = useChatStore();
 
   const currentUserId = useAuthStore((state) => state.user?.id || state.user?._id);
-  const [activeTab, setActiveTab] = useState('friends'); // 'friends' | 'requests' | 'sent' | 'suggestions'
+  const [activeTab, setActiveTab] = useState('suggestions'); // 'friends' | 'requests' | 'sent' | 'suggestions'
   const [searchQuery, setSearchQuery] = useState('');
   const [refreshing, setRefreshing] = useState(false);
 
@@ -60,8 +61,56 @@ export default function PeopleScreen({ navigation }) {
     setRefreshing(false);
   };
 
+  // Fetch users from backend when search query changes
+  useEffect(() => {
+    const delayDebounceFn = setTimeout(() => {
+      fetchUsers(false, searchQuery);
+    }, 300);
+
+    return () => clearTimeout(delayDebounceFn);
+  }, [searchQuery]);
+
   // Compute display list based on active tab and search query
   const displayData = useMemo(() => {
+    if (searchQuery.trim().length > 0) {
+      // Map global search results from users state
+      return users.map(u => {
+        const isFriend = friends.some(f => (f.id || f._id) === (u.id || u._id));
+        const incomingRequest = friendRequests.find(r => 
+          (r.sender?.id || r.sender?._id) === (u.id || u._id) && 
+          (r.receiver?._id || r.receiver?.id || r.receiver) === currentUserId && 
+          r.status === 'pending'
+        );
+        const outgoingRequest = friendRequests.find(r => 
+          (r.receiver?.id || r.receiver?._id) === (u.id || u._id) && 
+          (r.sender?._id || r.sender?.id || r.sender) === currentUserId && 
+          r.status === 'pending'
+        );
+
+        let type = 'suggestion';
+        let requestId = null;
+        if (isFriend) {
+          type = 'friend';
+        } else if (incomingRequest) {
+          type = 'incoming';
+          requestId = incomingRequest.id || incomingRequest._id;
+        } else if (outgoingRequest) {
+          type = 'outgoing';
+          requestId = outgoingRequest.id || outgoingRequest._id;
+        }
+
+        return {
+          id: u.id || u._id,
+          name: u.name,
+          email: u.email,
+          avatar: u.avatar,
+          bio: u.bio,
+          type,
+          requestId
+        };
+      });
+    }
+
     let list = [];
     if (activeTab === 'friends') {
       list = friends.map(f => ({
@@ -107,10 +156,8 @@ export default function PeopleScreen({ navigation }) {
       }));
     }
 
-    return list.filter(item => 
-      (item.name || '').toLowerCase().includes(searchQuery.toLowerCase())
-    );
-  }, [activeTab, friends, friendRequests, suggestions, searchQuery, currentUserId]);
+    return list;
+  }, [activeTab, friends, friendRequests, suggestions, users, searchQuery, currentUserId]);
 
   const renderUserItem = ({ item }) => {
     return (
@@ -217,17 +264,17 @@ export default function PeopleScreen({ navigation }) {
       {/* Search Bar */}
       <View style={styles.searchContainer}>
         <View style={styles.searchBar}>
-          <Ionicons name="search" size={20} color="#999" />
+          <Ionicons name="search" size={20} color={colors.textMuted} />
           <TextInput
             style={styles.searchInput}
             placeholder="Search people..."
             value={searchQuery}
             onChangeText={setSearchQuery}
-            placeholderTextColor="#999"
+            placeholderTextColor={colors.textSoft}
           />
           {searchQuery !== '' && (
             <TouchableOpacity onPress={() => setSearchQuery('')}>
-              <Ionicons name="close-circle" size={20} color="#ccc" />
+              <Ionicons name="close-circle" size={20} color={colors.textSoft} />
             </TouchableOpacity>
           )}
         </View>
@@ -264,7 +311,7 @@ export default function PeopleScreen({ navigation }) {
       {/* Main List */}
       {isLoadingUsers && !refreshing ? (
         <View style={styles.center}>
-          <ActivityIndicator size="large" color="#007bff" />
+          <ActivityIndicator size="large" color={colors.primary} />
         </View>
       ) : (
         <FlatList
@@ -274,11 +321,11 @@ export default function PeopleScreen({ navigation }) {
           contentContainerStyle={styles.listContent}
           ItemSeparatorComponent={() => <View style={styles.separator} />}
           refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#007bff" />
+            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />
           }
           ListEmptyComponent={
             <View style={styles.emptyContainer}>
-              <Ionicons name="people-outline" size={64} color="#ddd" />
+              <Ionicons name="people-outline" size={64} color={colors.textSoft} />
               <Text style={styles.emptyText}>{getEmptyMessage()}</Text>
             </View>
           }
@@ -291,89 +338,97 @@ export default function PeopleScreen({ navigation }) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#fff',
+    backgroundColor: colors.background,
     paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight : 0,
   },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   searchContainer: {
-    paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.md,
     borderBottomWidth: 1,
-    borderBottomColor: '#f0f0f0',
+    borderBottomColor: colors.border,
   },
   searchBar: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#f5f5f5',
-    borderRadius: 12,
-    paddingHorizontal: 12,
-    height: 45,
+    backgroundColor: colors.surface,
+    borderRadius: radii.small,
+    borderWidth: 1,
+    borderColor: colors.border,
+    paddingHorizontal: spacing.md,
+    height: 46,
   },
   searchInput: {
     flex: 1,
-    marginLeft: 8,
-    fontSize: 16,
-    color: '#000',
+    marginLeft: spacing.sm,
+    fontSize: 15,
+    color: colors.text,
+    outlineStyle: 'none',
   },
   tabContainer: {
     borderBottomWidth: 1,
-    borderBottomColor: '#f0f0f0',
-    backgroundColor: '#fff',
+    borderBottomColor: colors.border,
+    backgroundColor: colors.surface,
   },
   tabScroll: {
-    paddingHorizontal: 12,
-    paddingVertical: 10,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
   },
   tabItem: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 20,
-    backgroundColor: '#f0f2f5',
-    marginRight: 8,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.sm,
+    borderRadius: radii.pill,
+    backgroundColor: colors.background,
+    marginRight: spacing.sm,
     alignItems: 'center',
     justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: colors.border,
   },
   activeTabItem: {
-    backgroundColor: '#007bff',
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
   },
   tabText: {
     fontSize: 13,
-    fontWeight: 'bold',
-    color: '#65676b',
+    fontWeight: '600',
+    color: colors.textMuted,
   },
   activeTabText: {
-    color: '#fff',
+    color: colors.white,
   },
   listContent: { paddingBottom: 40 },
   userCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 16,
-    backgroundColor: '#fff',
+    padding: spacing.lg,
+    backgroundColor: colors.surface,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
   },
   avatar: {
     width: 50,
     height: 50,
     borderRadius: 25,
-    backgroundColor: '#e7f3ff',
+    backgroundColor: colors.primarySoft,
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 16,
+    marginRight: spacing.lg,
   },
   avatarImage: {
     width: 50,
     height: 50,
     borderRadius: 25,
-    marginRight: 16,
-    backgroundColor: '#eee',
+    marginRight: spacing.lg,
+    backgroundColor: colors.surfaceMuted,
   },
-  avatarText: { color: '#007bff', fontSize: 20, fontWeight: 'bold' },
+  avatarText: { color: colors.primary, fontSize: 20, fontWeight: '700' },
   userInfo: { flex: 1 },
-  userName: { fontSize: 17, fontWeight: '600', color: '#1a1a1a' },
-  userBio: { fontSize: 14, color: '#777', marginTop: 2, marginRight: 10 },
-  separator: { height: 1, backgroundColor: '#f0f0f0', marginLeft: 82 },
+  userName: { fontSize: 16, fontWeight: '600', color: colors.text },
+  userBio: { fontSize: 13, color: colors.textMuted, marginTop: 2, marginRight: spacing.sm },
+  separator: { height: 1, backgroundColor: colors.border, marginLeft: 82 },
   emptyContainer: { flex: 1, alignItems: 'center', marginTop: 100 },
-  emptyText: { color: '#999', fontSize: 16, marginTop: 10 },
+  emptyText: { color: colors.textMuted, fontSize: 15, marginTop: spacing.sm },
   
   // Friend System Styles
   actionContainer: {
@@ -384,10 +439,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 6,
-    paddingHorizontal: 12,
-    borderRadius: 15,
-    marginLeft: 6,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
+    borderRadius: radii.pill,
+    marginLeft: spacing.xs,
   },
   btnText: {
     fontSize: 13,
@@ -395,43 +450,43 @@ const styles = StyleSheet.create({
     color: '#fff',
   },
   addBtn: {
-    backgroundColor: '#007bff',
+    backgroundColor: colors.primary,
   },
   acceptBtn: {
-    backgroundColor: '#28a745',
+    backgroundColor: colors.success,
   },
   declineBtn: {
-    backgroundColor: '#fff',
+    backgroundColor: colors.surface,
     borderWidth: 1,
-    borderColor: '#dc3545',
+    borderColor: colors.danger,
   },
   chatBtn: {
-    backgroundColor: '#007bff',
-    paddingHorizontal: 8,
-    borderRadius: 8,
-    height: 30,
-    width: 30,
+    backgroundColor: colors.secondary,
+    paddingHorizontal: spacing.sm,
+    borderRadius: radii.pill,
+    height: 34,
+    width: 34,
   },
   unfriendBtn: {
-    backgroundColor: '#fff',
+    backgroundColor: colors.surface,
     borderWidth: 1,
-    borderColor: '#f5c6cb',
-    paddingHorizontal: 8,
-    borderRadius: 8,
-    height: 30,
-    width: 30,
+    borderColor: colors.danger,
+    paddingHorizontal: spacing.sm,
+    borderRadius: radii.pill,
+    height: 34,
+    width: 34,
   },
   statusBadge: {
-    paddingVertical: 4,
-    paddingHorizontal: 10,
-    borderRadius: 12,
+    paddingVertical: spacing.xs,
+    paddingHorizontal: spacing.md,
+    borderRadius: radii.pill,
   },
   pendingBadge: {
-    backgroundColor: '#e9ecef',
+    backgroundColor: colors.backgroundAlt,
   },
   pendingText: {
     fontSize: 12,
-    color: '#6c757d',
+    color: colors.textMuted,
     fontWeight: '500',
   },
 });

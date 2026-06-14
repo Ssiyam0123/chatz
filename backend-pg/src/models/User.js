@@ -41,6 +41,11 @@ const User = sequelize.define('User', {
     type: DataTypes.TEXT,
     defaultValue: null,
   },
+  coverPhoto: {
+    type: DataTypes.STRING(500),
+    defaultValue: '',
+    field: 'cover_photo',
+  },
 }, {
   tableName: 'users',
   timestamps: true,

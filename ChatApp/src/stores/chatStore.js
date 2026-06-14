@@ -310,10 +310,10 @@ const useChatStore = create((set, get) => ({
   },
   
   // ===== Users Actions =====
-  fetchUsers: async (showLoading = true) => {
+  fetchUsers: async (showLoading = true, search = '') => {
     if (showLoading) set({ isLoadingUsers: true });
     try {
-      const res = await api.get('/chat/users');
+      const res = await api.get(`/chat/users?search=${encodeURIComponent(search)}`);
       set({ users: res.data.data });
     } catch (err) { console.error(err); }
     finally { if (showLoading) set({ isLoadingUsers: false }); }

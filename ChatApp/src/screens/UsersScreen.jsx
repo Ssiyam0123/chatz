@@ -7,13 +7,19 @@ import {
   StyleSheet,
   ActivityIndicator,
   Alert,
+  Image,
+  SafeAreaView,
 } from 'react-native';
 import { useChatStore } from '../stores/chatStore';
 import { useAuthStore } from '../stores/authStore';
+import { colors, radii, spacing } from '../theme/blushDusk';
+import Avatar from '../components/ui/Avatar';
+import ListRow from '../components/ui/ListRow';
+import EmptyState from '../components/ui/EmptyState';
 
 export default function UsersScreen({ navigation }) {
   const { users, isLoadingUsers, fetchUsers } = useChatStore();
-  const currentUserId = useAuthStore((state) => state.user?.id);
+  const currentUserId = useAuthStore((state) => state.user?.id || state.user?._id);
   const logout = useAuthStore((state) => state.logout);
 
   useEffect(() => {
@@ -23,8 +29,8 @@ export default function UsersScreen({ navigation }) {
   useEffect(() => {
     navigation.setOptions({
       headerRight: () => (
-        <TouchableOpacity onPress={handleLogout} style={{ marginRight: 16 }}>
-          <Text style={{ color: '#007bff', fontWeight: 'bold' }}>Logout</Text>
+        <TouchableOpacity onPress={handleLogout} style={{ marginRight: spacing.lg }}>
+          <Text style={{ color: colors.primary, fontWeight: '600', fontSize: 15 }}>Logout</Text>
         </TouchableOpacity>
       ),
     });
@@ -42,43 +48,48 @@ export default function UsersScreen({ navigation }) {
     );
   };
 
+  const filteredUsers = users.filter((u) => (u.id || u._id) !== currentUserId);
+
   const renderItem = ({ item }) => (
-    <TouchableOpacity
-      style={styles.userItem}
-      onPress={() => navigation.navigate('Chat', { userId: item.id || item._id, userName: item.name })}
-    >
-      <Text style={styles.userName}>{item.name}</Text>
-      <Text style={styles.userEmail}>{item.email}</Text>
-    </TouchableOpacity>
+    <ListRow
+      avatar={
+        <Avatar uri={item.avatar} name={item.name} size="md" />
+      }
+      title={item.name}
+      subtitle={item.email}
+      onPress={() => navigation.navigate('UserProfile', { userId: item.id || item._id })}
+    />
   );
 
   if (isLoadingUsers) {
     return (
-      <View style={styles.center}>
-        <ActivityIndicator size="large" />
-      </View>
+      <SafeAreaView style={styles.container}>
+        <View style={styles.center}>
+          <ActivityIndicator size="large" color={colors.primary} />
+        </View>
+      </SafeAreaView>
     );
   }
 
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.container}>
       <FlatList
-        data={users.filter((u) => (u.id || u._id) !== currentUserId)}
+        data={filteredUsers}
         keyExtractor={(item) => item.id || item._id}
         renderItem={renderItem}
-        ItemSeparatorComponent={() => <View style={styles.separator} />}
-        ListEmptyComponent={<Text style={styles.empty}>No other users found</Text>}
+        ListEmptyComponent={
+          <EmptyState
+            icon="people-outline"
+            title="No users found"
+            message="There are no other users to discover yet."
+          />
+        }
       />
-    </View>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#fff' },
+  container: { flex: 1, backgroundColor: colors.background },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  userItem: { padding: 16 },
-  userName: { fontSize: 16, fontWeight: '600' },
-  userEmail: { fontSize: 14, color: '#666', marginTop: 4 },
-  separator: { height: 1, backgroundColor: '#eee' },
-  empty: { textAlign: 'center', marginTop: 50, color: '#999' },
 });

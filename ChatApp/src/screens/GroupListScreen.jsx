@@ -7,9 +7,14 @@ import {
   StyleSheet,
   ActivityIndicator,
   Image,
+  SafeAreaView,
 } from 'react-native';
 import { getMyGroups } from '../api/api';
 import { Ionicons } from '@expo/vector-icons';
+import { colors, radii, spacing } from '../theme/blushDusk';
+import Avatar from '../components/ui/Avatar';
+import ListRow from '../components/ui/ListRow';
+import EmptyState from '../components/ui/EmptyState';
 
 export default function GroupListScreen({ navigation }) {
   const [groups, setGroups] = useState([]);
@@ -34,36 +39,27 @@ export default function GroupListScreen({ navigation }) {
   };
 
   const renderItem = ({ item }) => (
-    <TouchableOpacity
-      style={styles.groupItem}
+    <ListRow
+      avatar={
+        <Avatar uri={item.avatar} name={item.name} size="md" />
+      }
+      title={item.name}
+      subtitle={`${item.members?.length ?? 0} member${item.members?.length !== 1 ? 's' : ''}`}
       onPress={() =>
         navigation.navigate('GroupChat', { groupId: item._id, groupName: item.name })
       }
-      activeOpacity={0.7}
-    >
-      {/* BUG FIX: separate Image style from placeholder View style */}
-      {item.avatar ? (
-        <Image source={{ uri: item.avatar }} style={styles.avatarImage} />
-      ) : (
-        <View style={styles.avatarPlaceholder}>
-          <Text style={styles.avatarText}>{item.name.charAt(0).toUpperCase()}</Text>
-        </View>
-      )}
-
-      <View style={styles.groupInfo}>
-        <Text style={styles.groupName}>{item.name}</Text>
-        <Text style={styles.memberCount}>
-          {item.members?.length ?? 0} member{item.members?.length !== 1 ? 's' : ''}
-        </Text>
-      </View>
-      <Ionicons name="chevron-forward" size={20} color="#ccc" />
-    </TouchableOpacity>
+      trailing={
+        <Ionicons name="chevron-forward" size={20} color={colors.textSoft} />
+      }
+    />
   );
 
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.container}>
       {loading && groups.length === 0 ? (
-        <ActivityIndicator size="large" color="#007AFF" style={{ marginTop: 40 }} />
+        <View style={styles.center}>
+          <ActivityIndicator size="large" color={colors.primary} />
+        </View>
       ) : (
         <FlatList
           data={groups}
@@ -72,69 +68,38 @@ export default function GroupListScreen({ navigation }) {
           refreshing={loading}
           onRefresh={loadGroups}
           ListEmptyComponent={
-            <View style={styles.emptyState}>
-              <Ionicons name="people-outline" size={64} color="#ddd" />
-              <Text style={styles.emptyText}>You're not in any groups yet.</Text>
-              <Text style={styles.emptySubtext}>Tap + to create one.</Text>
-            </View>
+            <EmptyState
+              icon="people-outline"
+              title="No groups yet"
+              message="You're not in any groups yet. Create one to get started!"
+            />
           }
         />
       )}
-      <TouchableOpacity style={styles.fab} onPress={() => navigation.navigate('CreateGroup')}>
-        <Ionicons name="add" size={30} color="#fff" />
+      <TouchableOpacity style={styles.fab} onPress={() => navigation.navigate('CreateGroup')} activeOpacity={0.85}>
+        <Ionicons name="add" size={28} color={colors.white} />
       </TouchableOpacity>
-    </View>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#fff' },
-  groupItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 16,
-    borderBottomWidth: 1,
-    borderColor: '#f0f0f0',
-  },
-  // BUG FIX: split into two separate styles so Image and View don't share
-  // layout-only props (justifyContent / alignItems) that don't apply to Image
-  avatarImage: {
-    width: 50,
-    height: 50,
-    borderRadius: 25,
-    marginRight: 16,
-    backgroundColor: '#eee',
-  },
-  avatarPlaceholder: {
-    width: 50,
-    height: 50,
-    borderRadius: 25,
-    backgroundColor: '#007AFF',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 16,
-  },
-  avatarText: { color: '#fff', fontSize: 20, fontWeight: 'bold' },
-  groupInfo: { flex: 1 },
-  groupName: { fontSize: 17, fontWeight: '700', color: '#111' },
-  memberCount: { fontSize: 13, color: '#777', marginTop: 3 },
+  container: { flex: 1, backgroundColor: colors.background },
+  center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   fab: {
     position: 'absolute',
-    right: 20,
-    bottom: 24,
-    backgroundColor: '#007AFF',
+    right: spacing.xl,
+    bottom: spacing.xxl,
+    backgroundColor: colors.primary,
     width: 56,
     height: 56,
     borderRadius: 28,
     alignItems: 'center',
     justifyContent: 'center',
     elevation: 8,
-    shadowColor: '#000',
+    shadowColor: '#382F38',
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.25,
-    shadowRadius: 6,
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
   },
-  emptyState: { alignItems: 'center', marginTop: 80 },
-  emptyText: { color: '#666', fontSize: 16, marginTop: 12, fontWeight: '600' },
-  emptySubtext: { color: '#aaa', fontSize: 14, marginTop: 4 },
 });

@@ -13,6 +13,7 @@ import {
 } from "react-native";
 import { useAuthStore } from "../stores/authStore";
 import { Ionicons } from "@expo/vector-icons";
+import { colors, radii, spacing } from "../theme/blushDusk";
 
 export default function RegisterScreen({ navigation }) {
   const [name, setName] = useState("");
@@ -22,7 +23,7 @@ export default function RegisterScreen({ navigation }) {
   const register = useAuthStore((state) => state.register);
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: "#fff" }}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }}>
       <KeyboardAvoidingView
         behavior={Platform.OS === "ios" ? "padding" : undefined}
         style={{ flex: 1 }}
@@ -31,43 +32,60 @@ export default function RegisterScreen({ navigation }) {
           contentContainerStyle={styles.inner}
           keyboardShouldPersistTaps="handled"
         >
-          <Text style={styles.title}>Create Account</Text>
+          {/* Brand mark */}
+          <View style={styles.brandRow}>
+            <View style={styles.brandDot} />
+            <Text style={styles.brandName}>Chat-Z</Text>
+          </View>
 
-          <TextInput
-            style={styles.input}
-            placeholder="Name"
-            value={name}
-            onChangeText={setName}
-          />
+          <Text style={styles.welcomeTitle}>Create account</Text>
+          <Text style={styles.welcomeSub}>Join Chat-Z and connect with friends.</Text>
 
-          <TextInput
-            style={styles.input}
-            placeholder="Email"
-            autoCapitalize="none"
-            keyboardType="email-address"
-            autoComplete="email"
-            value={email}
-            onChangeText={setEmail}
-          />
-
-          <View style={styles.passContainer}>
-            <TextInput
-              style={{ flex: 1, padding: 12, fontSize: 16 }}
-              placeholder="Password"
-              secureTextEntry={!showPass}
-              value={password}
-              onChangeText={setPassword}
-            />
-            <TouchableOpacity
-              onPress={() => setShowPass(!showPass)}
-              style={{ padding: 10 }}
-            >
-              <Ionicons
-                name={showPass ? "eye-off" : "eye"}
-                size={22}
-                color="#666"
+          <View style={styles.inputGroup}>
+            <View style={styles.inputContainer}>
+              <TextInput
+                style={styles.input}
+                placeholder="Full name"
+                placeholderTextColor={colors.textSoft}
+                value={name}
+                onChangeText={setName}
               />
-            </TouchableOpacity>
+            </View>
+
+            <View style={styles.inputContainer}>
+              <TextInput
+                style={styles.input}
+                placeholder="Email"
+                placeholderTextColor={colors.textSoft}
+                autoCapitalize="none"
+                keyboardType="email-address"
+                autoComplete="email"
+                value={email}
+                onChangeText={setEmail}
+              />
+            </View>
+
+            <View style={styles.passContainer}>
+              <TextInput
+                style={styles.passInput}
+                placeholder="Password"
+                placeholderTextColor={colors.textSoft}
+                secureTextEntry={!showPass}
+                value={password}
+                onChangeText={setPassword}
+              />
+              <TouchableOpacity
+                onPress={() => setShowPass(!showPass)}
+                style={styles.eyeBtn}
+                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+              >
+                <Ionicons
+                  name={showPass ? "eye-off" : "eye"}
+                  size={22}
+                  color={colors.textMuted}
+                />
+              </TouchableOpacity>
+            </View>
           </View>
 
           <TouchableOpacity
@@ -84,16 +102,18 @@ export default function RegisterScreen({ navigation }) {
                 Alert.alert("Registration Error", errorMsg);
               }
             }}
+            activeOpacity={0.85}
           >
-            <Text style={styles.buttonText}>Sign Up</Text>
+            <Text style={styles.buttonText}>Create Account</Text>
           </TouchableOpacity>
 
           <TouchableOpacity
             onPress={() => navigation.goBack()}
-            style={{ marginTop: 20 }}
+            style={styles.linkWrap}
+            hitSlop={{ top: 10, bottom: 10 }}
           >
-            <Text style={{ textAlign: "center", color: "#007bff" }}>
-              Already have an account? Login
+            <Text style={styles.linkText}>
+              Already have an account? <Text style={styles.linkHighlight}>Sign in</Text>
             </Text>
           </TouchableOpacity>
         </ScrollView>
@@ -103,34 +123,86 @@ export default function RegisterScreen({ navigation }) {
 }
 
 const styles = StyleSheet.create({
-  inner: { flexGrow: 1, justifyContent: "center", padding: 20 },
-  title: {
-    fontSize: 32,
-    fontWeight: "bold",
-    marginBottom: 40,
-    textAlign: "center",
+  inner: { flexGrow: 1, justifyContent: "center", padding: spacing.xxl },
+  brandRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: spacing.section,
+  },
+  brandDot: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: colors.primary,
+    marginRight: spacing.sm,
+  },
+  brandName: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: colors.primary,
+    letterSpacing: 1,
+  },
+  welcomeTitle: {
+    fontSize: 28,
+    fontWeight: '700',
+    color: colors.text,
+    textAlign: 'center',
+    marginBottom: spacing.sm,
+  },
+  welcomeSub: {
+    fontSize: 15,
+    color: colors.textMuted,
+    textAlign: 'center',
+    marginBottom: spacing.section,
+    lineHeight: 22,
+  },
+  inputGroup: {
+    marginBottom: spacing.xl,
+  },
+  inputContainer: {
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radii.small,
+    paddingHorizontal: spacing.lg,
+    marginBottom: spacing.md,
   },
   input: {
-    borderWidth: 1,
-    borderColor: "#ccc",
-    padding: 12,
-    borderRadius: 10,
-    marginBottom: 16,
-    fontSize: 16,
+    fontSize: 15,
+    color: colors.text,
+    paddingVertical: spacing.md,
+    lineHeight: 20,
+    outlineStyle: 'none',
   },
   passContainer: {
-    flexDirection: "row",
-    alignItems: "center",
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.surface,
     borderWidth: 1,
-    borderColor: "#ccc",
-    borderRadius: 10,
-    marginBottom: 20,
+    borderColor: colors.border,
+    borderRadius: radii.small,
+    paddingHorizontal: spacing.lg,
   },
+  passInput: {
+    flex: 1,
+    fontSize: 15,
+    color: colors.text,
+    paddingVertical: spacing.md,
+    lineHeight: 20,
+    outlineStyle: 'none',
+  },
+  eyeBtn: { padding: spacing.sm },
   button: {
-    backgroundColor: "#007bff",
-    padding: 16,
-    borderRadius: 10,
-    alignItems: "center",
+    backgroundColor: colors.primary,
+    paddingVertical: 15,
+    borderRadius: radii.small,
+    alignItems: 'center',
+    minHeight: 50,
+    justifyContent: 'center',
   },
-  buttonText: { color: "#fff", fontWeight: "bold", fontSize: 18 },
+  buttonText: { color: colors.white, fontWeight: '600', fontSize: 16 },
+  linkWrap: { marginTop: spacing.xl, alignItems: 'center' },
+  linkText: { textAlign: 'center', color: colors.textMuted, fontSize: 14 },
+  linkHighlight: { color: colors.primary, fontWeight: '600' },
 });

@@ -1,11 +1,13 @@
 import React from 'react';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Ionicons } from '@expo/vector-icons'; 
+import { View, StyleSheet, Platform } from 'react-native';
 import FeedScreen from '../screens/FeedScreen';
 import ChatListScreen from '../screens/ChatListScreen';
 import PeopleScreen from '../screens/PeopleScreen';
 import ProfileScreen from '../screens/ProfileScreen';
 import useChatStore from '../stores/chatStore';
+import { colors } from '../theme/blushDusk';
 
 const Tab = createBottomTabNavigator();
 
@@ -29,13 +31,31 @@ export default function MainTabNavigator() {
           }
           return <Ionicons name={iconName} size={size} color={color} />;
         },
-        tabBarActiveTintColor: '#1877f2', // Facebook blue
-        tabBarInactiveTintColor: 'gray',
+        tabBarActiveTintColor: colors.primary,
+        tabBarInactiveTintColor: colors.textMuted,
+        tabBarStyle: {
+          backgroundColor: colors.surface,
+          borderTopColor: colors.border,
+          borderTopWidth: 1,
+          paddingBottom: Platform.OS === 'ios' ? 20 : 8,
+          paddingTop: 8,
+          height: Platform.OS === 'ios' ? 85 : 65,
+        },
+        tabBarLabelStyle: {
+          fontSize: 11,
+          fontWeight: '600',
+        },
+        tabBarBadgeStyle: {
+          backgroundColor: colors.primaryPressed,
+          fontSize: 11,
+          fontWeight: '700',
+          color: colors.white,
+        },
         headerShown: false,
         lazy: true,
       })}
     >
-      <Tab.Screen name="Feed" component={FeedScreen} options={{ title: 'News Feed' }} />
+      <Tab.Screen name="Feed" component={FeedScreen} options={{ title: 'Feed' }} />
       <Tab.Screen name="Friends" component={PeopleScreen} options={{ title: 'Friends' }} />
       <Tab.Screen 
         name="Chats" 

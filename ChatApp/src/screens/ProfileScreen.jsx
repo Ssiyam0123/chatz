@@ -24,6 +24,9 @@ import { useAuthStore } from '../stores/authStore';
 import useChatStore from '../stores/chatStore';
 import { useFocusEffect } from '@react-navigation/native';
 import { api } from '../api/api';
+import { colors, radii, spacing } from '../theme/blushDusk';
+import Avatar from '../components/ui/Avatar';
+import PrimaryButton from '../components/ui/PrimaryButton';
 
 const { width } = Dimensions.get('window');
 
@@ -208,6 +211,57 @@ export default function ProfileScreen({ route, navigation }) {
 
     if (!result.canceled) {
       setEditAvatar(result.assets[0].uri);
+    }
+  };
+
+  const handlePickCover = async () => {
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (status !== 'granted') {
+      Alert.alert('Permission Needed', 'Please allow photo gallery access to change your cover photo.');
+      return;
+    }
+
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true,
+      aspect: [16, 9],
+      quality: 0.7,
+    });
+
+    if (!result.canceled) {
+      const coverUri = result.assets[0].uri;
+      setSavingProfile(true);
+      try {
+        const formData = new FormData();
+        if (Platform.OS === 'web') {
+          const response = await fetch(coverUri);
+          const blob = await response.blob();
+          formData.append('coverPhoto', blob, 'cover.jpg');
+        } else {
+          const uriParts = coverUri.split('.');
+          const fileType = uriParts[uriParts.length - 1] || 'jpg';
+          formData.append('coverPhoto', {
+            uri: coverUri,
+            name: `cover.${fileType}`,
+            type: `image/${fileType}`,
+          });
+        }
+
+        const response = await api.put('/user/profile', formData, {
+          headers: { 'Content-Type': 'multipart/form-data' },
+        });
+
+        if (response.data.status === 'success') {
+          updateUser(response.data.data.user);
+          setDisplayedUser(response.data.data.user);
+          Alert.alert('Success', 'Cover photo updated successfully!');
+        }
+      } catch (err) {
+        console.error('Error updating cover:', err);
+        Alert.alert('Error', 'Failed to upload cover photo');
+      } finally {
+        setSavingProfile(false);
+      }
     }
   };
 
@@ -430,11 +484,11 @@ export default function ProfileScreen({ route, navigation }) {
           </View>
           {isOwnProfile && (
             <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-              <TouchableOpacity onPress={() => handleStartEditPost(item)} style={{ padding: 6, marginRight: 8 }}>
-                <Ionicons name="create-outline" size={20} color="#1877f2" />
+              <TouchableOpacity onPress={() => handleStartEditPost(item)} style={{ padding: spacing.xs, marginRight: spacing.sm }}>
+                <Ionicons name="create-outline" size={20} color={colors.primary} />
               </TouchableOpacity>
-              <TouchableOpacity onPress={() => handleDeletePost(postId)} style={{ padding: 6 }}>
-                <Ionicons name="trash-outline" size={20} color="#e0245e" />
+              <TouchableOpacity onPress={() => handleDeletePost(postId)} style={{ padding: spacing.xs }}>
+                <Ionicons name="trash-outline" size={20} color={colors.danger} />
               </TouchableOpacity>
             </View>
           )}
@@ -609,7 +663,7 @@ export default function ProfileScreen({ route, navigation }) {
         renderItem={renderPostItem}
         keyExtractor={item => item.id || item._id}
         showsVerticalScrollIndicator={false}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={colors.primary} />}
         onEndReached={handleLoadMore}
         onEndReachedThreshold={0.5}
         ListFooterComponent={renderFooter}
@@ -619,56 +673,55 @@ export default function ProfileScreen({ route, navigation }) {
             {/* Profile Backdrop / Cover Picture Area */}
             <View style={styles.coverArea}>
               <Image
-                source={{ uri: 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=800&auto=format&fit=crop' }}
+                source={{ uri: displayedUser?.coverPhoto || 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=800&auto=format&fit=crop' }}
                 style={styles.coverImage}
               />
+              {isOwnProfile && (
+                <TouchableOpacity style={styles.changeCoverBadge} onPress={handlePickCover} activeOpacity={0.8}>
+                  <Ionicons name="camera" size={16} color="#fff" style={{ marginRight: 4 }} />
+                  <Text style={styles.changeCoverText}>Edit Cover</Text>
+                </TouchableOpacity>
+              )}
             </View>
 
             {/* Profile Card details container */}
             <View style={styles.profileDetailsContainer}>
               <View style={styles.avatarWrapper}>
-                {displayedUser?.avatar ? (
-                  <Image source={{ uri: displayedUser.avatar }} style={styles.profileAvatar} />
-                ) : (
-                  <View style={[styles.profileAvatar, styles.profileAvatarPlaceholder]}>
-                    <Text style={styles.avatarLargeText}>
-                      {displayedUser?.name ? displayedUser.name[0].toUpperCase() : '?'}
-                    </Text>
-                  </View>
-                )}
+                <Avatar uri={displayedUser?.avatar} name={displayedUser?.name} size="xxl" />
               </View>
 
               <Text style={styles.profileName}>{displayedUser?.name || 'Social User'}</Text>
               {displayedUser?.bio ? (
                 <Text style={styles.profileBio}>{displayedUser.bio}</Text>
               ) : (
-                <Text style={[styles.profileBio, { color: '#8a8d91', fontStyle: 'italic' }]}>No bio yet</Text>
+                <Text style={[styles.profileBio, { color: colors.textSoft, fontStyle: 'italic' }]}>No bio yet</Text>
               )}
 
               {/* Profile Action Buttons */}
               <View style={styles.profileButtonsRow}>
                 {isOwnProfile ? (
                   <>
-                    <TouchableOpacity style={styles.editButton} onPress={handleOpenEditModal}>
-                      <Ionicons name="create-outline" size={18} color="#fff" style={{ marginRight: 6 }} />
+                    <TouchableOpacity style={styles.editButton} onPress={handleOpenEditModal} activeOpacity={0.85}>
+                      <Ionicons name="create-outline" size={18} color={colors.white} style={{ marginRight: 6 }} />
                       <Text style={styles.editButtonText}>Edit Profile</Text>
                     </TouchableOpacity>
 
-                    <TouchableOpacity style={styles.logoutButton} onPress={logout}>
-                      <Ionicons name="log-out-outline" size={18} color="#fff" style={{ marginRight: 6 }} />
+                    <TouchableOpacity style={styles.logoutButton} onPress={logout} activeOpacity={0.85}>
+                      <Ionicons name="log-out-outline" size={18} color={colors.danger} style={{ marginRight: 6 }} />
                       <Text style={styles.logoutButtonText}>Log Out</Text>
                     </TouchableOpacity>
                   </>
                 ) : (
                   <>
                     <TouchableOpacity
-                      style={[styles.editButton, { marginRight: 8 }]}
+                      style={[styles.editButton, { marginRight: spacing.sm }]}
                       onPress={() => navigation.navigate('ChatDetail', { 
                         userId: targetUserId, 
                         userName: displayedUser?.name || 'User' 
                       })}
+                      activeOpacity={0.85}
                     >
-                      <Ionicons name="chatbubble-ellipses-outline" size={18} color="#fff" style={{ marginRight: 6 }} />
+                      <Ionicons name="chatbubble-ellipses-outline" size={18} color={colors.white} style={{ marginRight: 6 }} />
                       <Text style={styles.editButtonText}>Message</Text>
                     </TouchableOpacity>
 
@@ -676,45 +729,50 @@ export default function ProfileScreen({ route, navigation }) {
                       <TouchableOpacity
                         style={styles.logoutButton}
                         onPress={() => removeFriend(targetUserId)}
+                        activeOpacity={0.85}
                       >
-                        <Ionicons name="person-remove-outline" size={18} color="#fff" style={{ marginRight: 6 }} />
+                        <Ionicons name="person-remove-outline" size={18} color={colors.danger} style={{ marginRight: 6 }} />
                         <Text style={styles.logoutButtonText}>Unfriend</Text>
                       </TouchableOpacity>
                     )}
 
                     {friendshipStatus === 'sent_pending' && (
                       <TouchableOpacity
-                        style={[styles.logoutButton, { backgroundColor: '#6c757d' }]}
+                        style={[styles.logoutButton, { borderColor: colors.textMuted }]}
                         onPress={() => removeFriend(targetUserId)}
+                        activeOpacity={0.85}
                       >
-                        <Ionicons name="close-circle-outline" size={18} color="#fff" style={{ marginRight: 6 }} />
-                        <Text style={styles.logoutButtonText}>Cancel Request</Text>
+                        <Ionicons name="close-circle-outline" size={18} color={colors.textMuted} style={{ marginRight: 6 }} />
+                        <Text style={[styles.logoutButtonText, { color: colors.textMuted }]}>Cancel Request</Text>
                       </TouchableOpacity>
                     )}
 
                     {friendshipStatus === 'received_pending' && (
                       <View style={{ flexDirection: 'row', flex: 1 }}>
                         <TouchableOpacity
-                          style={[styles.editButton, { backgroundColor: '#28a745', marginRight: 8 }]}
+                          style={[styles.editButton, { backgroundColor: colors.success, marginRight: spacing.sm }]}
                           onPress={() => respondFriendRequest(friendshipRequest.id || friendshipRequest._id, 'accepted')}
+                          activeOpacity={0.85}
                         >
                           <Text style={styles.editButtonText}>Accept</Text>
                         </TouchableOpacity>
                         <TouchableOpacity
-                          style={[styles.logoutButton, { backgroundColor: '#dc3545' }]}
+                          style={[styles.logoutButton, { borderColor: colors.danger }]}
                           onPress={() => respondFriendRequest(friendshipRequest.id || friendshipRequest._id, 'declined')}
+                          activeOpacity={0.85}
                         >
-                          <Text style={styles.logoutButtonText}>Decline</Text>
+                          <Text style={[styles.logoutButtonText, { color: colors.danger }]}>Decline</Text>
                         </TouchableOpacity>
                       </View>
                     )}
 
                     {friendshipStatus === 'none' && (
                       <TouchableOpacity
-                        style={[styles.editButton, { backgroundColor: '#28a745', marginRight: 0 }]}
+                        style={[styles.editButton, { backgroundColor: colors.success, marginRight: 0 }]}
                         onPress={() => sendFriendRequest(targetUserId)}
+                        activeOpacity={0.85}
                       >
-                        <Ionicons name="person-add-outline" size={18} color="#fff" style={{ marginRight: 6 }} />
+                        <Ionicons name="person-add-outline" size={18} color={colors.white} style={{ marginRight: 6 }} />
                         <Text style={styles.editButtonText}>Add Friend</Text>
                       </TouchableOpacity>
                     )}
@@ -744,13 +802,13 @@ export default function ProfileScreen({ route, navigation }) {
             {/* User's Posts Section */}
             <View style={styles.postsHeaderRow}>
               <Text style={styles.sectionTitle}>
-                {isOwnProfile ? 'My Posts' : `${displayedUser?.name || 'User'}'s Posts`}
+                {isOwnProfile ? 'Posts' : `Posts`}
               </Text>
             </View>
 
             {isLoadingUserPosts && !refreshing && (
               <View style={styles.loaderContainer}>
-                <ActivityIndicator size="large" color="#1877f2" />
+                <ActivityIndicator size="large" color={colors.primary} />
               </View>
             )}
           </>
@@ -758,7 +816,7 @@ export default function ProfileScreen({ route, navigation }) {
         ListEmptyComponent={
           !isLoadingUserPosts ? (
             <View style={styles.emptyContainer}>
-              <Ionicons name="document-text-outline" size={48} color="#8a8d91" />
+              <Ionicons name="document-text-outline" size={48} color={colors.textSoft} />
               <Text style={styles.emptyText}>
                 {isOwnProfile ? "You haven't posted anything yet." : `${displayedUser?.name || 'This user'} hasn't posted anything yet.`}
               </Text>
@@ -917,120 +975,120 @@ export default function ProfileScreen({ route, navigation }) {
 const styles = StyleSheet.create({
   screen: {
     flex: 1,
-    backgroundColor: '#f0f2f5',
+    backgroundColor: colors.background,
     paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight : 0,
   },
   coverArea: {
     height: 180,
     width: '100%',
-    backgroundColor: '#ddd'
+    backgroundColor: colors.surfaceMuted
   },
   coverImage: {
     width: '100%',
     height: '100%'
   },
+  changeCoverBadge: {
+    position: 'absolute',
+    bottom: spacing.md,
+    right: spacing.md,
+    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: spacing.xs,
+    paddingHorizontal: spacing.md,
+    borderRadius: radii.small,
+  },
+  changeCoverText: {
+    color: '#fff',
+    fontSize: 12,
+    fontWeight: '600',
+  },
   profileDetailsContainer: {
     alignItems: 'center',
-    backgroundColor: '#fff',
-    paddingBottom: 20,
-    borderBottomLeftRadius: 16,
-    borderBottomRightRadius: 16,
-    shadowColor: '#000',
+    backgroundColor: colors.surface,
+    paddingBottom: spacing.xl,
+    borderBottomLeftRadius: radii.medium,
+    borderBottomRightRadius: radii.medium,
+    shadowColor: '#382F38',
     shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
+    shadowOpacity: 0.08,
+    shadowRadius: 4,
     elevation: 2
   },
   avatarWrapper: {
-    marginTop: -60,
-    borderWidth: 4,
-    borderColor: '#fff',
-    borderRadius: 64,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 4,
-    elevation: 4
-  },
-  profileAvatar: {
-    width: 120,
-    height: 120,
-    borderRadius: 60
-  },
-  profileAvatarPlaceholder: {
-    backgroundColor: '#1877f2',
-    justifyContent: 'center',
-    alignItems: 'center'
-  },
-  avatarLargeText: {
-    color: '#fff',
-    fontSize: 48,
-    fontWeight: 'bold'
+    marginTop: -55,
+    borderWidth: 3,
+    borderColor: colors.surface,
+    borderRadius: 60,
   },
   profileName: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#050505',
-    marginTop: 10
+    fontSize: 22,
+    fontWeight: '700',
+    color: colors.text,
+    marginTop: spacing.sm
   },
   profileBio: {
-    fontSize: 15,
-    color: '#65676b',
-    marginTop: 6,
-    paddingHorizontal: 30,
+    fontSize: 14,
+    color: colors.textMuted,
+    marginTop: spacing.xs,
+    paddingHorizontal: spacing.xxl,
     textAlign: 'center'
   },
   profileButtonsRow: {
     flexDirection: 'row',
-    marginTop: 18,
+    marginTop: spacing.lg,
     width: '100%',
-    paddingHorizontal: 20,
+    paddingHorizontal: spacing.xl,
     justifyContent: 'center'
   },
   editButton: {
-    backgroundColor: '#1877f2',
+    backgroundColor: colors.primary,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 10,
-    paddingHorizontal: 20,
-    borderRadius: 8,
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.xl,
+    borderRadius: radii.small,
     flex: 1,
-    marginRight: 10
+    marginRight: spacing.sm,
+    minHeight: 46,
   },
   editButtonText: {
-    color: '#fff',
-    fontWeight: 'bold',
-    fontSize: 15
+    color: colors.white,
+    fontWeight: '600',
+    fontSize: 14
   },
   logoutButton: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 10,
-    paddingHorizontal: 20,
-    borderRadius: 8,
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.xl,
+    borderRadius: radii.small,
     flex: 1,
-    backgroundColor: '#e0245e'
+    borderWidth: 1.5,
+    borderColor: colors.danger,
+    backgroundColor: 'transparent',
+    minHeight: 46,
   },
   logoutButtonText: {
-    color: '#fff',
-    fontWeight: 'bold',
-    fontSize: 15
+    color: colors.danger,
+    fontWeight: '600',
+    fontSize: 14
   },
   statsCard: {
-    backgroundColor: '#fff',
+    backgroundColor: colors.surface,
     flexDirection: 'row',
     justifyContent: 'space-around',
     alignItems: 'center',
-    marginVertical: 12,
-    marginHorizontal: 16,
-    paddingVertical: 16,
-    borderRadius: 12,
-    shadowColor: '#000',
+    marginVertical: spacing.md,
+    marginHorizontal: spacing.lg,
+    paddingVertical: spacing.lg,
+    borderRadius: radii.medium,
+    shadowColor: '#382F38',
     shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 2,
+    shadowOpacity: 0.06,
+    shadowRadius: 3,
     elevation: 1
   },
   statItem: {
@@ -1039,50 +1097,47 @@ const styles = StyleSheet.create({
   },
   statCount: {
     fontSize: 18,
-    fontWeight: 'bold',
-    color: '#050505'
+    fontWeight: '700',
+    color: colors.text
   },
   statLabel: {
     fontSize: 13,
-    color: '#65676b',
-    marginTop: 4
+    color: colors.textMuted,
+    marginTop: 2
   },
   statDivider: {
     width: 1,
-    height: 30,
-    backgroundColor: '#e4e6eb'
+    height: 28,
+    backgroundColor: colors.border
   },
   postsHeaderRow: {
-    marginHorizontal: 16,
-    marginTop: 10,
-    marginBottom: 6
+    marginHorizontal: spacing.lg,
+    marginTop: spacing.sm,
+    marginBottom: spacing.xs
   },
   sectionTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#050505'
+    fontSize: 18,
+    fontWeight: '700',
+    color: colors.text
   },
   postsList: {
-    paddingHorizontal: 16,
     paddingBottom: 120,
     flexGrow: 1
   },
   postCard: {
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 12,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 2,
-    elevation: 1,
+    backgroundColor: colors.surface,
+    borderRadius: radii.medium,
+    padding: spacing.lg,
+    marginHorizontal: spacing.lg,
+    marginBottom: spacing.md,
+    borderWidth: 1,
+    borderColor: colors.border,
     position: 'relative'
   },
   postHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 12
+    marginBottom: spacing.md
   },
   postAvatar: {
     width: 40,
@@ -1090,50 +1145,50 @@ const styles = StyleSheet.create({
     borderRadius: 20
   },
   avatarPlaceholder: {
-    backgroundColor: '#1877f2',
+    backgroundColor: colors.primarySoft,
     justifyContent: 'center',
     alignItems: 'center'
   },
   avatarText: {
-    color: '#fff',
-    fontWeight: 'bold',
+    color: colors.primary,
+    fontWeight: '700',
     fontSize: 16
   },
   postHeaderInfo: {
-    marginLeft: 10,
+    marginLeft: spacing.sm,
     flex: 1
   },
   postAuthor: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: '#050505'
+    fontSize: 15,
+    fontWeight: '600',
+    color: colors.text
   },
   postTime: {
-    fontSize: 12,
-    color: '#65676b',
+    fontSize: 11,
+    color: colors.textSoft,
     marginTop: 2
   },
   deleteButton: {
-    padding: 6
+    padding: spacing.xs
   },
   postContent: {
-    fontSize: 15,
-    color: '#050505',
+    fontSize: 14,
+    color: colors.text,
     lineHeight: 20,
-    marginBottom: 10
+    marginBottom: spacing.sm
   },
   postImage: {
     width: '100%',
     height: 220,
-    borderRadius: 8,
-    marginBottom: 10
+    borderRadius: radii.small,
+    marginBottom: spacing.sm
   },
   carouselContainer: {
     width: '100%',
     height: 220,
-    borderRadius: 8,
+    borderRadius: radii.small,
     overflow: 'hidden',
-    marginBottom: 10,
+    marginBottom: spacing.sm,
     position: 'relative'
   },
   carouselImage: {
@@ -1143,7 +1198,7 @@ const styles = StyleSheet.create({
   paginationDots: {
     flexDirection: 'row',
     position: 'absolute',
-    bottom: 10,
+    bottom: spacing.sm,
     alignSelf: 'center'
   },
   paginationDot: {
@@ -1153,18 +1208,18 @@ const styles = StyleSheet.create({
     marginHorizontal: 3
   },
   paginationDotActive: {
-    backgroundColor: '#1877f2'
+    backgroundColor: colors.primary
   },
   paginationDotInactive: {
     backgroundColor: 'rgba(255,255,255,0.5)'
   },
   sharedPostContainer: {
     borderWidth: 1,
-    borderColor: '#e4e6eb',
-    borderRadius: 8,
-    padding: 12,
-    marginBottom: 10,
-    backgroundColor: '#f8f9fa'
+    borderColor: colors.border,
+    borderRadius: radii.small,
+    padding: spacing.md,
+    marginBottom: spacing.sm,
+    backgroundColor: colors.background
   },
   sharedAvatar: {
     width: 32,
@@ -1173,36 +1228,36 @@ const styles = StyleSheet.create({
   },
   sharedAuthor: {
     fontSize: 14,
-    fontWeight: 'bold',
-    color: '#050505'
+    fontWeight: '600',
+    color: colors.text
   },
   sharedContent: {
     fontSize: 14,
-    color: '#050505',
-    marginTop: 6,
-    marginBottom: 8
+    color: colors.text,
+    marginTop: spacing.xs,
+    marginBottom: spacing.sm
   },
   sharedImage: {
     width: '100%',
     height: 180,
-    borderRadius: 6
+    borderRadius: radii.small
   },
   countersRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    paddingVertical: 4
+    paddingVertical: spacing.xs
   },
   counterText: {
     fontSize: 12,
-    color: '#65676b'
+    color: colors.textMuted
   },
   reactionMiniEmoji: {
     fontSize: 12
   },
   actionsDivider: {
     height: 1,
-    backgroundColor: '#e4e6eb',
-    marginVertical: 8
+    backgroundColor: colors.border,
+    marginVertical: spacing.sm
   },
   postActionsRow: {
     flexDirection: 'row',
@@ -1211,7 +1266,7 @@ const styles = StyleSheet.create({
   actionButton: {
     flex: 1,
     alignItems: 'center',
-    paddingVertical: 6
+    paddingVertical: spacing.xs
   },
   actionIconRow: {
     flexDirection: 'row',
@@ -1219,133 +1274,134 @@ const styles = StyleSheet.create({
   },
   actionButtonText: {
     fontSize: 13,
-    color: '#65676b',
-    fontWeight: '600',
-    marginLeft: 6
+    color: colors.textMuted,
+    fontWeight: '500',
+    marginLeft: spacing.xs
   },
   actionButtonTextActive: {
     fontSize: 13,
     fontWeight: '600',
-    color: '#1877f2'
+    color: colors.primary
   },
   reactionPickerContainer: {
     position: 'absolute',
     bottom: 50,
-    left: 16,
-    right: 16,
-    backgroundColor: '#fff',
-    borderRadius: 30,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
+    left: spacing.lg,
+    right: spacing.lg,
+    backgroundColor: colors.surface,
+    borderRadius: radii.pill,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs,
     flexDirection: 'row',
     justifyContent: 'space-between',
-    shadowColor: '#000',
+    shadowColor: '#382F38',
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
+    shadowOpacity: 0.14,
     shadowRadius: 8,
     elevation: 6,
     zIndex: 1000
   },
   reactionPickerEmojiButton: {
-    padding: 6
+    padding: spacing.xs
   },
   reactionPickerEmoji: {
     fontSize: 24
   },
   commentsSection: {
-    marginTop: 12,
-    backgroundColor: '#f8f9fa',
-    borderRadius: 8,
-    padding: 8
+    marginTop: spacing.md,
+    backgroundColor: colors.background,
+    borderRadius: radii.small,
+    padding: spacing.sm
   },
   commentsList: {
-    marginBottom: 8
+    marginBottom: spacing.sm
   },
   commentItem: {
     flexDirection: 'row',
-    marginBottom: 8,
+    marginBottom: spacing.sm,
     alignItems: 'flex-start'
   },
   commentAvatar: {
     width: 32,
     height: 32,
     borderRadius: 16,
-    marginRight: 8
+    marginRight: spacing.sm
   },
   commentContentBg: {
-    backgroundColor: '#e4e6eb',
-    borderRadius: 16,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
+    backgroundColor: colors.surfaceMuted,
+    borderRadius: radii.medium,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs,
     flex: 1
   },
   commentAuthor: {
     fontSize: 12,
-    fontWeight: 'bold',
-    color: '#050505'
+    fontWeight: '600',
+    color: colors.text
   },
   commentText: {
     fontSize: 13,
-    color: '#050505',
+    color: colors.text,
     marginTop: 2
   },
   commentInputRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#fff',
+    backgroundColor: colors.surface,
     borderWidth: 1,
-    borderColor: '#e4e6eb',
-    borderRadius: 20,
-    paddingLeft: 12,
-    paddingRight: 6,
+    borderColor: colors.border,
+    borderRadius: radii.pill,
+    paddingLeft: spacing.md,
+    paddingRight: spacing.xs,
     height: 38
   },
   commentInput: {
     flex: 1,
     fontSize: 13,
-    color: '#050505',
+    color: colors.text,
     height: '100%',
-    paddingVertical: 0
+    paddingVertical: 0,
+    outlineStyle: 'none',
   },
   sendCommentBtn: {
-    padding: 6
+    padding: spacing.xs
   },
   loaderContainer: {
-    marginVertical: 40,
+    marginVertical: spacing.section,
     alignItems: 'center'
   },
   emptyContainer: {
-    marginVertical: 40,
+    marginVertical: spacing.section,
     alignItems: 'center',
     justifyContent: 'center'
   },
   emptyText: {
-    fontSize: 15,
-    color: '#8a8d91',
-    marginTop: 10
+    fontSize: 14,
+    color: colors.textMuted,
+    marginTop: spacing.sm
   },
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
+    backgroundColor: colors.overlay,
     justifyContent: 'flex-end'
   },
   modalContent: {
-    backgroundColor: '#fff',
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    padding: 20,
+    backgroundColor: colors.surface,
+    borderTopLeftRadius: radii.large,
+    borderTopRightRadius: radii.large,
+    padding: spacing.xl,
     minHeight: 400
   },
   modalTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#050505',
-    marginBottom: 20,
+    fontSize: 18,
+    fontWeight: '700',
+    color: colors.text,
+    marginBottom: spacing.xl,
     textAlign: 'center'
   },
   avatarPicker: {
     alignItems: 'center',
-    marginBottom: 24,
+    marginBottom: spacing.xxl,
     position: 'relative',
     alignSelf: 'center'
   },
@@ -1358,38 +1414,39 @@ const styles = StyleSheet.create({
     position: 'absolute',
     bottom: 22,
     right: 0,
-    backgroundColor: '#1877f2',
+    backgroundColor: colors.primary,
     width: 28,
     height: 28,
     borderRadius: 14,
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 2,
-    borderColor: '#fff'
+    borderColor: colors.surface
   },
   changeAvatarText: {
     fontSize: 14,
-    color: '#1877f2',
+    color: colors.primary,
     fontWeight: '600',
-    marginTop: 8
+    marginTop: spacing.sm
   },
   inputContainer: {
-    marginBottom: 16
+    marginBottom: spacing.lg
   },
   inputLabel: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#65676b',
-    marginBottom: 6
+    color: colors.textMuted,
+    marginBottom: spacing.xs
   },
   input: {
     borderWidth: 1,
-    borderColor: '#ced0d4',
-    borderRadius: 8,
-    padding: 12,
+    borderColor: colors.border,
+    borderRadius: radii.small,
+    padding: spacing.md,
     fontSize: 15,
-    color: '#050505',
-    backgroundColor: '#f8f9fa'
+    color: colors.text,
+    backgroundColor: colors.background,
+    outlineStyle: 'none',
   },
   bioInput: {
     height: 80,
@@ -1398,33 +1455,33 @@ const styles = StyleSheet.create({
   modalButtons: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginTop: 16
+    marginTop: spacing.lg
   },
   cancelBtn: {
     flex: 1,
-    backgroundColor: '#e4e6eb',
-    paddingVertical: 12,
-    borderRadius: 8,
-    marginRight: 8,
+    backgroundColor: colors.backgroundAlt,
+    paddingVertical: spacing.md,
+    borderRadius: radii.small,
+    marginRight: spacing.sm,
     alignItems: 'center'
   },
   cancelBtnText: {
-    color: '#050505',
-    fontWeight: 'bold',
+    color: colors.text,
+    fontWeight: '600',
     fontSize: 15
   },
   saveBtn: {
     flex: 1,
-    backgroundColor: '#1877f2',
-    paddingVertical: 12,
-    borderRadius: 8,
-    marginLeft: 8,
+    backgroundColor: colors.primary,
+    paddingVertical: spacing.md,
+    borderRadius: radii.small,
+    marginLeft: spacing.sm,
     alignItems: 'center',
     justifyContent: 'center'
   },
   saveBtnText: {
-    color: '#fff',
-    fontWeight: 'bold',
+    color: colors.white,
+    fontWeight: '600',
     fontSize: 15
   }
 });

@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useCallback } from 'react';
+import React, { useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -17,6 +17,8 @@ import useChatStore from '../stores/chatStore';
 import * as ImagePicker from 'expo-image-picker';
 import { Ionicons } from '@expo/vector-icons';
 import { useHeaderHeight } from '@react-navigation/elements';
+import { colors, radii, spacing } from '../theme/blushDusk';
+import Avatar from '../components/ui/Avatar';
 
 const EMPTY_ARRAY = [];
 const EMPTY_OBJECT = {};
@@ -103,13 +105,7 @@ export default function GroupChatScreen({ route }) {
       <View style={[styles.messageRow, isMe ? styles.myMessageRow : styles.otherMessageRow]}>
         {!isMe && (
           <View style={styles.senderAvatarWrap}>
-            {item.sender?.avatar ? (
-              <Image source={{ uri: item.sender.avatar }} style={styles.senderAvatar} />
-            ) : (
-              <View style={[styles.senderAvatar, styles.senderAvatarPlaceholder]}>
-                <Text style={styles.senderAvatarText}>{(item.sender?.name || 'U')[0].toUpperCase()}</Text>
-              </View>
-            )}
+            <Avatar uri={item.sender?.avatar} name={item.sender?.name} size="sm" />
           </View>
         )}
         <View style={[styles.messageBubble, isMe ? styles.myBubble : styles.otherBubble]}>
@@ -119,7 +115,7 @@ export default function GroupChatScreen({ route }) {
               <Image source={{ uri: item.image }} style={styles.messageImage} />
               {item.isUploading && (
                 <View style={styles.uploadingOverlay}>
-                  <ActivityIndicator color="#fff" />
+                  <ActivityIndicator color={colors.white} />
                   <Text style={styles.uploadingText}>Sending…</Text>
                 </View>
               )}
@@ -161,19 +157,22 @@ export default function GroupChatScreen({ route }) {
           </View>
         )}
 
-        <View style={styles.inputContainer}>
+        <View style={styles.inputWrap}>
           <TouchableOpacity onPress={pickImage} style={styles.attachButton} disabled={uploadingImage}>
-            <Ionicons name="add-circle-outline" size={28} color={uploadingImage ? '#ccc' : '#007AFF'} />
+            <Ionicons name="image-outline" size={24} color={uploadingImage ? colors.textSoft : colors.secondary} />
           </TouchableOpacity>
           <TextInput
             style={styles.textInput}
             placeholder="Type a message…"
+            placeholderTextColor={colors.textSoft}
             value={inputText}
             onChangeText={onChangeText}
             multiline
           />
-          <TouchableOpacity onPress={handleSend} style={styles.sendButton} disabled={!inputText.trim()}>
-            <Ionicons name="send" size={24} color={inputText.trim() ? '#007AFF' : '#ccc'} />
+          <TouchableOpacity onPress={handleSend} disabled={!inputText.trim()}>
+            <View style={[styles.sendBtn, !inputText.trim() && styles.sendBtnDisabled]}>
+              <Ionicons name="send" size={18} color={colors.white} />
+            </View>
           </TouchableOpacity>
         </View>
       </KeyboardAvoidingView>
@@ -182,33 +181,32 @@ export default function GroupChatScreen({ route }) {
 }
 
 const styles = StyleSheet.create({
-  safeArea: { flex: 1, backgroundColor: '#fff' },
-  container: { flex: 1 },
-  listContent: { paddingHorizontal: 12, paddingTop: 12, paddingBottom: 10 },
-  messageRow: { flexDirection: 'row', marginBottom: 10, alignItems: 'flex-end' },
+  safeArea: { flex: 1, backgroundColor: colors.background },
+  container: { flex: 1, backgroundColor: colors.background },
+  listContent: { paddingHorizontal: spacing.md, paddingTop: spacing.sm, paddingBottom: spacing.sm },
+  messageRow: { flexDirection: 'row', marginBottom: spacing.sm, alignItems: 'flex-end' },
   myMessageRow: { justifyContent: 'flex-end' },
   otherMessageRow: { justifyContent: 'flex-start' },
-  senderAvatarWrap: { marginRight: 8, marginBottom: 2 },
+  senderAvatarWrap: { marginRight: spacing.sm, marginBottom: 2 },
   senderAvatar: { width: 32, height: 32, borderRadius: 16 },
-  senderAvatarPlaceholder: { backgroundColor: '#007AFF', justifyContent: 'center', alignItems: 'center' },
-  senderAvatarText: { color: '#fff', fontSize: 13, fontWeight: 'bold' },
-  messageBubble: { maxWidth: '80%', padding: 10, borderRadius: 18 },
-  myBubble: { backgroundColor: '#007AFF', borderBottomRightRadius: 4 },
-  otherBubble: { backgroundColor: '#f0f0f0', borderBottomLeftRadius: 4 },
-  senderName: { fontWeight: 'bold', fontSize: 12, marginBottom: 4, color: '#007AFF' },
-  myMessageText: { color: '#fff', fontSize: 15 },
-  otherMessageText: { color: '#333', fontSize: 15 },
+  messageBubble: { maxWidth: '80%', paddingHorizontal: 14, paddingVertical: 10, borderRadius: radii.medium },
+  myBubble: { backgroundColor: colors.primarySoft, borderBottomRightRadius: 4 },
+  otherBubble: { backgroundColor: colors.surface, borderBottomLeftRadius: 4, borderWidth: 1, borderColor: colors.border },
+  senderName: { fontWeight: '600', fontSize: 12, marginBottom: 4, color: colors.secondary },
+  myMessageText: { color: colors.text, fontSize: 15 },
+  otherMessageText: { color: colors.text, fontSize: 15 },
   time: { fontSize: 10, marginTop: 4, alignSelf: 'flex-end' },
-  myTime: { color: 'rgba(255,255,255,0.7)' },
-  otherTime: { color: '#888' },
+  myTime: { color: colors.textMuted },
+  otherTime: { color: colors.textSoft },
   imageWrapper: { position: 'relative' },
-  messageImage: { width: 220, height: 160, borderRadius: 12, marginBottom: 4 },
-  uploadingOverlay: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.4)', borderRadius: 12, justifyContent: 'center', alignItems: 'center' },
-  uploadingText: { color: '#fff', fontSize: 12, marginTop: 4 },
-  typingBar: { paddingHorizontal: 15, paddingVertical: 5, backgroundColor: '#f9f9f9' },
-  typingText: { fontSize: 12, color: '#888', fontStyle: 'italic' },
-  inputContainer: { flexDirection: 'row', padding: 10, borderTopWidth: 1, borderColor: '#eee', alignItems: 'flex-end' },
-  attachButton: { marginRight: 8, marginBottom: 4 },
-  textInput: { flex: 1, borderWidth: 1, borderColor: '#ddd', borderRadius: 20, paddingHorizontal: 15, paddingTop: 8, paddingBottom: 8, marginRight: 10, maxHeight: 100 },
-  sendButton: { marginBottom: 4 },
+  messageImage: { width: 220, height: 160, borderRadius: radii.small, marginBottom: 4, backgroundColor: colors.surfaceMuted },
+  uploadingOverlay: { ...StyleSheet.absoluteFillObject, backgroundColor: colors.overlay, borderRadius: radii.small, justifyContent: 'center', alignItems: 'center' },
+  uploadingText: { color: colors.white, fontSize: 12, marginTop: 4 },
+  typingBar: { paddingHorizontal: spacing.lg, paddingVertical: spacing.xs, backgroundColor: colors.backgroundAlt },
+  typingText: { fontSize: 12, color: colors.textMuted, fontStyle: 'italic' },
+  inputWrap: { flexDirection: 'row', padding: spacing.sm, backgroundColor: colors.surface, borderTopWidth: 1, borderColor: colors.border, alignItems: 'flex-end' },
+  attachButton: { marginRight: spacing.sm, marginBottom: spacing.xs, justifyContent: 'center', alignItems: 'center' },
+  textInput: { flex: 1, borderWidth: 1, borderColor: colors.border, borderRadius: radii.pill, paddingHorizontal: spacing.lg, paddingTop: spacing.sm, paddingBottom: spacing.sm, marginRight: spacing.sm, maxHeight: 100, fontSize: 15, color: colors.text, outlineStyle: 'none' },
+  sendBtn: { backgroundColor: colors.primary, borderRadius: radii.pill, paddingHorizontal: 14, paddingVertical: 8, marginBottom: 2, alignItems: 'center', justifyContent: 'center' },
+  sendBtnDisabled: { opacity: 0.4 },
 });

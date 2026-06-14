@@ -26,8 +26,8 @@ if (process.env.DATABASE_URL) {
       },
     },
     pool: {
-      max: 10,
-      min: 0,
+      max: parseInt(process.env.DB_POOL_MAX || '50'),
+      min: parseInt(process.env.DB_POOL_MIN || '5'),
       acquire: 30000,
       idle: 10000,
     },
@@ -47,8 +47,8 @@ if (process.env.DATABASE_URL) {
       dialect: 'postgres',
       logging: false,
       pool: {
-        max: 10,
-        min: 0,
+        max: parseInt(process.env.DB_POOL_MAX || '50'),
+        min: parseInt(process.env.DB_POOL_MIN || '5'),
         acquire: 30000,
         idle: 10000,
       },
