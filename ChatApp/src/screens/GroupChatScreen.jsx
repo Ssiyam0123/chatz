@@ -98,7 +98,7 @@ export default function GroupChatScreen({ route }) {
   };
 
   const renderMessage = ({ item }) => {
-    const senderId = item.sender?._id || item.sender;
+    const senderId = item.sender?.id || item.sender?._id || item.sender;
     const isMe = senderId === currentUserId || senderId?.toString() === currentUserId;
 
     return (

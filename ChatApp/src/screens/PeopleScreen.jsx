@@ -28,6 +28,7 @@ export default function PeopleScreen({ navigation }) {
     friends,
     friendRequests,
     suggestions,
+    hasMoreSuggestions,
     sendFriendRequest,
     respondFriendRequest,
     removeFriend,
@@ -41,24 +42,42 @@ export default function PeopleScreen({ navigation }) {
   const [searchQuery, setSearchQuery] = useState('');
   const [refreshing, setRefreshing] = useState(false);
 
+  // Suggestions Pagination States
+  const [suggestionsPage, setSuggestionsPage] = useState(1);
+  const [loadingMoreSuggestions, setLoadingMoreSuggestions] = useState(false);
+
   useFocusEffect(
     useCallback(() => {
       fetchUsers();
       fetchFriends();
       fetchFriendRequests();
-      fetchSuggestions();
+      fetchSuggestions(1, 15);
+      setSuggestionsPage(1);
     }, [])
   );
 
   const onRefresh = async () => {
     setRefreshing(true);
+    setSuggestionsPage(1);
     await Promise.all([
       fetchUsers(), 
       fetchFriends(), 
       fetchFriendRequests(),
-      fetchSuggestions()
+      fetchSuggestions(1, 15)
     ]);
     setRefreshing(false);
+  };
+
+  const handleLoadMore = async () => {
+    if (activeTab === 'suggestions' && !loadingMoreSuggestions && hasMoreSuggestions) {
+      setLoadingMoreSuggestions(true);
+      const nextPage = suggestionsPage + 1;
+      const newSugs = await fetchSuggestions(nextPage, 15);
+      if (newSugs && newSugs.length > 0) {
+        setSuggestionsPage(nextPage);
+      }
+      setLoadingMoreSuggestions(false);
+    }
   };
 
   // Fetch users from backend when search query changes
@@ -284,17 +303,12 @@ export default function PeopleScreen({ navigation }) {
       <View style={styles.tabContainer}>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.tabScroll}>
           {[
-            { id: 'friends', label: `Friends (${friends.length})` },
-            { 
-              id: 'requests', 
-              label: `Requests (${friendRequests.filter(r => (r.receiver?._id || r.receiver?.id || r.receiver) === currentUserId && r.status === 'pending').length})` 
-            },
-            { 
-              id: 'sent', 
-              label: `Sent (${friendRequests.filter(r => (r.sender?._id || r.sender?.id || r.sender) === currentUserId && r.status === 'pending').length})` 
-            },
-            { id: 'suggestions', label: `Suggestions (${suggestions.length})` },
+            { id: 'friends', label: 'Friends' },
+            { id: 'requests', label: 'Requests' },
+            { id: 'sent', label: 'Sent' },
+            { id: 'suggestions', label: 'Suggestions' },
           ].map((tab) => (
+
             <TouchableOpacity
               key={tab.id}
               style={[styles.tabItem, activeTab === tab.id && styles.activeTabItem]}
@@ -322,6 +336,13 @@ export default function PeopleScreen({ navigation }) {
           ItemSeparatorComponent={() => <View style={styles.separator} />}
           refreshControl={
             <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />
+          }
+          onEndReached={handleLoadMore}
+          onEndReachedThreshold={0.4}
+          ListFooterComponent={
+            loadingMoreSuggestions ? (
+              <ActivityIndicator style={{ padding: 15 }} color={colors.primary} />
+            ) : null
           }
           ListEmptyComponent={
             <View style={styles.emptyContainer}>

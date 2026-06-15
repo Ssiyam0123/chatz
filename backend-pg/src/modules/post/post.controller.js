@@ -12,10 +12,12 @@ const postInclude = [
   { association: 'user', attributes: ['id', 'name', 'avatar'] },
   {
     association: 'comments',
+    separate: true,
     include: [
       { association: 'user', attributes: ['id', 'name', 'avatar'] },
       {
         association: 'reactions',
+        separate: true,
         include: [{ association: 'user', attributes: ['id', 'name', 'avatar'] }],
       },
     ],
@@ -23,6 +25,7 @@ const postInclude = [
   },
   {
     association: 'reactions',
+    separate: true,
     include: [{ association: 'user', attributes: ['id', 'name', 'avatar'] }],
   },
   {
@@ -31,15 +34,18 @@ const postInclude = [
       { association: 'user', attributes: ['id', 'name', 'avatar'] },
       {
         association: 'reactions',
+        separate: true,
         include: [{ association: 'user', attributes: ['id', 'name', 'avatar'] }],
       },
       {
         association: 'comments',
+        separate: true,
         include: [{ association: 'user', attributes: ['id', 'name', 'avatar'] }],
       },
     ],
   },
 ];
+
 
 // Create a new post
 export const createPost = async (req, res) => {

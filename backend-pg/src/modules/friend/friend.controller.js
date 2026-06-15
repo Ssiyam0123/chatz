@@ -184,19 +184,24 @@ export const getFriendRequests = async (req, res) => {
 export const getFriends = async (req, res) => {
   try {
     const userId = req.user.id;
-    const user = await User.findByPk(userId, {
+    const friendships = await UserFriend.findAll({
+      where: { userId },
       include: [
-        { association: 'friends', attributes: ['id', 'name', 'email', 'avatar', 'bio', 'publicKey'] },
+        {
+          association: 'friend',
+          attributes: ['id', 'name', 'email', 'avatar', 'bio', 'publicKey'],
+        },
       ],
     });
 
-    if (!user) {
-      return res.status(404).json({ message: 'User not found' });
-    }
+    const friends = friendships
+      .map((f) => f.friend)
+      .filter(Boolean)
+      .sort((a, b) => (a.name || '').localeCompare(b.name || ''));
 
     res.status(200).json({
       status: 'success',
-      data: user.friends,
+      data: friends,
     });
   } catch (err) {
     res.status(500).json({ status: 'error', message: err.message });
@@ -263,6 +268,9 @@ export const removeFriend = async (req, res) => {
 export const getSuggestions = async (req, res) => {
   try {
     const userId = req.user.id;
+    const page = parseInt(req.query.page || '1');
+    const limit = parseInt(req.query.limit || '15');
+    const offset = (page - 1) * limit;
 
     // Get current user and their friends
     const user = await User.findByPk(userId, {
@@ -290,15 +298,23 @@ export const getSuggestions = async (req, res) => {
 
     const uniqueExcludeIds = [...new Set(excludeIds)];
 
-    const suggestions = await User.findAll({
+    const { count, rows: suggestions } = await User.findAndCountAll({
       where: { id: { [Op.notIn]: uniqueExcludeIds } },
       attributes: ['id', 'name', 'avatar', 'bio', 'publicKey'],
-      limit: 10,
+      limit,
+      offset,
+      order: [['name', 'ASC']],
     });
 
     res.status(200).json({
       status: 'success',
       data: suggestions,
+      pagination: {
+        total: count,
+        page,
+        limit,
+        totalPages: Math.ceil(count / limit),
+      },
     });
   } catch (err) {
     res.status(500).json({ status: 'error', message: err.message });

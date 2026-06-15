@@ -76,6 +76,7 @@ const useChatStore = create((set, get) => ({
   friends: [],
   suggestions: [],
   isLoadingSuggestions: false,
+  hasMoreSuggestions: true,
   
   // Posts & Stories
   posts: [],
@@ -693,15 +694,25 @@ const useChatStore = create((set, get) => ({
     }
   },
 
-  fetchSuggestions: async () => {
-    set({ isLoadingSuggestions: true });
+  fetchSuggestions: async (page = 1, limit = 15) => {
+    if (page === 1) {
+      set({ isLoadingSuggestions: true, hasMoreSuggestions: true });
+    }
     try {
-      const res = await api.get('/friends/suggestions');
-      set({ suggestions: res.data.data });
+      const res = await api.get(`/friends/suggestions?page=${page}&limit=${limit}`);
+      const newSuggestions = res.data.data;
+      set((state) => ({
+        suggestions: page === 1 ? newSuggestions : [...state.suggestions, ...newSuggestions],
+        hasMoreSuggestions: newSuggestions.length === limit
+      }));
+      return newSuggestions;
     } catch (err) {
       console.error('Error fetching suggestions:', err);
+      return [];
     } finally {
-      set({ isLoadingSuggestions: false });
+      if (page === 1) {
+        set({ isLoadingSuggestions: false });
+      }
     }
   },
 
@@ -1083,9 +1094,9 @@ const useChatStore = create((set, get) => ({
           const updatedList = grp.stories.map((st) => {
             if (st._id === storyId) {
               const currentUserId = state.user?.id || state.user?._id;
-              const hasViewed = st.viewers?.some(v => (v._id || v) === currentUserId);
+              const hasViewed = st.viewers?.some(v => (v.id || v._id || v) === currentUserId);
               if (!hasViewed) {
-                const viewers = [...(st.viewers || []), { _id: currentUserId, name: state.user?.name, avatar: state.user?.avatar }];
+                const viewers = [...(st.viewers || []), { id: currentUserId, _id: currentUserId, name: state.user?.name, avatar: state.user?.avatar }];
                 return { ...st, viewers };
               }
             }
@@ -1114,6 +1125,8 @@ const useChatStore = create((set, get) => ({
       groups: [],
       friendRequests: [],
       friends: [],
+      suggestions: [],
+      hasMoreSuggestions: true,
       posts: [],
       userPosts: [],
       stories: []

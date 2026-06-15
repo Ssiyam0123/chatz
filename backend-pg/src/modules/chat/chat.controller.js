@@ -1,4 +1,4 @@
-import { User, Message } from '../../models/index.js';
+import { User, Message, Group, GroupMember, GroupMessage, UserFriend } from '../../models/index.js';
 import { Op } from 'sequelize';
 import sequelize from '../../config/database.js';
 
@@ -49,13 +49,17 @@ export const getChatHistory = async (req, res) => {
     const limit = parseInt(req.query.limit || '30');
     const before = req.query.before; // ISO timestamp string or cursor
 
-    // Friend request system guard
-    const currentUser = await User.findByPk(req.user.id, {
-      include: [{ association: 'friends', attributes: ['id'] }],
+    // Friend request system guard - check UserFriend link table directly
+    const isFriend = await UserFriend.findOne({
+      where: {
+        [Op.or]: [
+          { userId: req.user.id, friendId: partnerId },
+          { userId: partnerId, friendId: req.user.id }
+        ]
+      }
     });
 
-    const isFriend = currentUser.friends?.some((f) => f.id === partnerId);
-    if (!currentUser || !isFriend) {
+    if (!isFriend) {
       return res.status(403).json({
         status: 'error',
         message: 'You can only view chat history with friends.',
@@ -126,29 +130,15 @@ export const getConversations = async (req, res) => {
       LEFT JOIN users u_sender ON m.sender_id = u_sender.id
       LEFT JOIN users u_receiver ON m.receiver_id = u_receiver.id
       ORDER BY m.created_at DESC
-      LIMIT :limit OFFSET :offset
-    `;
-
-    const countQuery = `
-      SELECT COUNT(DISTINCT CASE WHEN sender_id = :userId THEN receiver_id ELSE sender_id END) AS "count"
-      FROM messages
-      WHERE sender_id = :userId OR receiver_id = :userId
     `;
 
     const conversationsResult = await sequelize.query(rawConversationsQuery, {
-      replacements: { userId, limit, offset },
-      type: sequelize.QueryTypes.SELECT,
-    });
-
-    const countResult = await sequelize.query(countQuery, {
       replacements: { userId },
       type: sequelize.QueryTypes.SELECT,
     });
 
-    const total = parseInt(countResult[0]?.count || '0');
-
     // Format results to match the original structure expected by frontend
-    const conversations = conversationsResult.map((row) => {
+    const directConversations = conversationsResult.map((row) => {
       const partnerId = row.senderId === userId ? row.receiverId : row.senderId;
       const partner = row.senderId === userId
         ? { id: row['receiver.id'], name: row['receiver.name'], avatar: row['receiver.avatar'], publicKey: row['receiver.publicKey'] }
@@ -163,12 +153,68 @@ export const getConversations = async (req, res) => {
         lastMessageNonce: row.nonce || null,
         lastMessageIsEncrypted: row.isEncrypted,
         userDetails: partner,
+        isGroup: false,
       };
     });
 
+    // ─── Fetch Group Conversations ───
+    const memberships = await GroupMember.findAll({
+      where: { userId },
+      attributes: ['groupId'],
+    });
+    const groupIds = memberships.map((m) => m.groupId);
+
+    const groups = await Group.findAll({
+      where: { id: { [Op.in]: groupIds } },
+      attributes: ['id', 'name', 'avatar', 'createdAt'],
+    });
+
+    let latestGroupMessages = [];
+    if (groupIds.length > 0) {
+      latestGroupMessages = await sequelize.query(`
+        SELECT DISTINCT ON (group_id) group_id AS "groupId", text, image, created_at AS "createdAt"
+        FROM group_messages
+        WHERE group_id IN (:groupIds)
+        ORDER BY group_id, created_at DESC
+      `, {
+        replacements: { groupIds },
+        type: sequelize.QueryTypes.SELECT,
+      });
+    }
+
+    const groupMessagesMap = {};
+    latestGroupMessages.forEach((msg) => {
+      groupMessagesMap[msg.groupId] = msg;
+    });
+
+    const groupConversations = groups.map((group) => {
+      const latestMsg = groupMessagesMap[group.id];
+      return {
+        _id: group.id,
+        lastMessage: latestMsg ? (latestMsg.image ? '📷 Image' : latestMsg.text) : 'No messages yet',
+        lastMessageTime: latestMsg ? latestMsg.createdAt : group.createdAt,
+        isGroup: true,
+        name: group.name,
+        avatar: group.avatar,
+        userDetails: {
+          id: group.id,
+          name: group.name,
+          avatar: group.avatar,
+        },
+      };
+    });
+
+    // Combine and sort
+    const combinedConversations = [...directConversations, ...groupConversations];
+    combinedConversations.sort((a, b) => new Date(b.lastMessageTime) - new Date(a.lastMessageTime));
+
+    // Paginate in memory
+    const total = combinedConversations.length;
+    const paginatedConversations = combinedConversations.slice(offset, offset + limit);
+
     res.status(200).json({
       status: 'success',
-      data: conversations,
+      data: paginatedConversations,
       pagination: {
         total,
         page,

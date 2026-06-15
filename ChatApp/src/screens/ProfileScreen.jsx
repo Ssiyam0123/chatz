@@ -333,7 +333,7 @@ export default function ProfileScreen({ route, navigation }) {
   };
 
   const handleStartEditPost = (post) => {
-    setEditingPostId(post._id);
+    setEditingPostId(post.id || post._id);
     setEditPostText(post.content || '');
     setEditPostModalVisible(true);
   };
@@ -656,8 +656,10 @@ export default function ProfileScreen({ route, navigation }) {
     );
   };
 
+  const hasHeader = !!route?.params?.userId || (navigation && typeof navigation.canGoBack === 'function' && navigation.canGoBack());
+
   return (
-    <SafeAreaView style={styles.screen}>
+    <SafeAreaView style={[styles.screen, hasHeader && { paddingTop: 0 }]}>
       <FlatList
         data={userPosts}
         renderItem={renderPostItem}

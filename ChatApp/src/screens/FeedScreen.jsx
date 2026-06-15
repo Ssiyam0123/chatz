@@ -197,7 +197,7 @@ export default function FeedScreen({ navigation }) {
 
   // Handle start editing a post
   const handleStartEditPost = (post) => {
-    setEditingPostId(post._id);
+    setEditingPostId(post.id || post._id);
     setEditPostText(post.content || '');
     setEditPostModalVisible(true);
   };
@@ -803,13 +803,11 @@ export default function FeedScreen({ navigation }) {
                   )}
 
                   {/* Friends' Stories */}
-                  <FlatList
-                    data={stories}
-                    renderItem={renderStoryCircle}
-                    keyExtractor={(item) => item.user._id}
-                    horizontal
-                    scrollEnabled={false}
-                  />
+                  {stories.map((item) => (
+                    <React.Fragment key={item.user.id || item.user._id}>
+                      {renderStoryCircle({ item })}
+                    </React.Fragment>
+                  ))}
                 </ScrollView>
               </View>
 
@@ -1059,7 +1057,7 @@ export default function FeedScreen({ navigation }) {
             </View>
             <FlatList
               data={reactedUsersModalData}
-              keyExtractor={(item, index) => item._id || index.toString()}
+              keyExtractor={(item, index) => item.id || item._id || index.toString()}
               renderItem={({ item }) => {
                 const reactant = item.user || {};
                 const rType = REACTION_TYPES.find(rt => rt.type === item.type);
@@ -1102,7 +1100,7 @@ export default function FeedScreen({ navigation }) {
             </View>
             <FlatList
               data={storyViewersModalData}
-              keyExtractor={(item, index) => item._id || index.toString()}
+              keyExtractor={(item, index) => item.id || item._id || index.toString()}
               renderItem={({ item }) => (
                 <View style={styles.reactantRow}>
                   {item.avatar ? (

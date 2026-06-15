@@ -77,6 +77,25 @@ export default function ChatListScreen({ navigation }) {
 
   return (
     <SafeAreaView style={styles.container}>
+      <View style={styles.header}>
+        <Text style={styles.headerTitle}>Chats</Text>
+        <View style={styles.headerActions}>
+          <TouchableOpacity
+            style={styles.headerBtn}
+            onPress={() => navigation.navigate('GroupList')}
+            activeOpacity={0.7}
+          >
+            <Ionicons name="people-outline" size={24} color={colors.primary} />
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.headerBtn}
+            onPress={() => navigation.navigate('CreateGroup')}
+            activeOpacity={0.7}
+          >
+            <Ionicons name="add-circle-outline" size={24} color={colors.primary} />
+          </TouchableOpacity>
+        </View>
+      </View>
       <FlatList
         data={conversations}
         renderItem={renderItem}
@@ -103,4 +122,27 @@ const styles = StyleSheet.create({
   },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   time: { fontSize: 12, color: colors.textSoft },
+  header: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.md,
+    backgroundColor: colors.surface,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+  },
+  headerTitle: {
+    fontSize: 22,
+    fontWeight: '700',
+    color: colors.text,
+  },
+  headerActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  headerBtn: {
+    marginLeft: spacing.md,
+    padding: spacing.xs,
+  },
 });

@@ -20,7 +20,7 @@ export default function App() {
 
   if (!isHydrated) {
     return (
-      <View style={{ flex: 1, justifyContent: 'center', height: '100vh' }}>
+      <View style={{ flex: 1, justifyContent: 'center', height: '100%' }}>
         <ActivityIndicator size="large" color="#007bff" />
       </View>
     );

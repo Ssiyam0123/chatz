@@ -46,7 +46,7 @@ export default function GroupListScreen({ navigation }) {
       title={item.name}
       subtitle={`${item.members?.length ?? 0} member${item.members?.length !== 1 ? 's' : ''}`}
       onPress={() =>
-        navigation.navigate('GroupChat', { groupId: item._id, groupName: item.name })
+        navigation.navigate('GroupChat', { groupId: item.id, groupName: item.name })
       }
       trailing={
         <Ionicons name="chevron-forward" size={20} color={colors.textSoft} />
@@ -63,7 +63,7 @@ export default function GroupListScreen({ navigation }) {
       ) : (
         <FlatList
           data={groups}
-          keyExtractor={(item) => item._id}
+          keyExtractor={(item) => item.id}
           renderItem={renderItem}
           refreshing={loading}
           onRefresh={loadGroups}

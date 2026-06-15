@@ -78,19 +78,19 @@ export default function CreateGroupScreen({ navigation }) {
   };
 
   const renderUser = ({ item }) => (
-    <TouchableOpacity style={styles.userItem} onPress={() => toggleSelect(item._id)} activeOpacity={0.7}>
+    <TouchableOpacity style={styles.userItem} onPress={() => toggleSelect(item.id)} activeOpacity={0.7}>
       <View style={styles.userInfo}>
-        <View style={[styles.userAvatar, selectedUsers[item._id] && { backgroundColor: colors.primarySoft }]}>
-          <Text style={[styles.avatarText, selectedUsers[item._id] && { color: colors.primary }]}>
+        <View style={[styles.userAvatar, selectedUsers[item.id] && { backgroundColor: colors.primarySoft }]}>
+          <Text style={[styles.avatarText, selectedUsers[item.id] && { color: colors.primary }]}>
             {item.name.charAt(0).toUpperCase()}
           </Text>
         </View>
         <Text style={styles.userName}>{item.name}</Text>
       </View>
       <Ionicons 
-        name={selectedUsers[item._id] ? 'checkbox' : 'square-outline'} 
+        name={selectedUsers[item.id] ? 'checkbox' : 'square-outline'} 
         size={24} 
-        color={selectedUsers[item._id] ? colors.primary : colors.border} 
+        color={selectedUsers[item.id] ? colors.primary : colors.border} 
       />
     </TouchableOpacity>
   );
@@ -132,7 +132,7 @@ export default function CreateGroupScreen({ navigation }) {
         ) : (
           <FlatList
             data={users}
-            keyExtractor={(item) => item._id}
+            keyExtractor={(item) => item.id}
             renderItem={renderUser}
             style={styles.userList}
             contentContainerStyle={styles.userListContent}
