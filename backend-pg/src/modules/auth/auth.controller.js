@@ -1,6 +1,5 @@
 import pool from '../../config/pgDatabase.js';
 import bcrypt from 'bcryptjs';
-import { v4 as uuidv4 } from 'uuid';
 import jwt from 'jsonwebtoken';
 import { AppError } from '../../utils/AppError.js';
 import { asyncHandler, sendSuccess } from '../../utils/response.js';
@@ -21,13 +20,12 @@ export const register = asyncHandler(async (req, res) => {
   }
 
   const hashedPassword = await bcrypt.hash(password, 12);
-  const userId = uuidv4();
 
   const { rows } = await pool.query(
-    `INSERT INTO users (id, name, email, password, password_changed_at, created_at, updated_at) 
-     VALUES ($1, $2, $3, $4, NOW(), NOW(), NOW()) 
+    `INSERT INTO users (name, email, password, password_changed_at, created_at, updated_at) 
+     VALUES ($1, $2, $3, NOW(), NOW(), NOW()) 
      RETURNING id, name, email, avatar, public_key`,
-    [userId, name, email.toLowerCase(), hashedPassword]
+    [name, email.toLowerCase(), hashedPassword]
   );
   
   const user = rows[0];
