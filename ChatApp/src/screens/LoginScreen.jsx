@@ -52,7 +52,21 @@ export default function LoginScreen({ navigation }) {
             </View>
           </View>
 
-          <TouchableOpacity style={styles.button} onPress={() => login(email, password)} activeOpacity={0.85}>
+          <TouchableOpacity 
+            style={styles.button} 
+            onPress={async () => {
+              if (!email || !password) {
+                alert('Please enter both email and password');
+                return;
+              }
+              try {
+                await login(email, password);
+              } catch (err) {
+                alert(err.response?.data?.error?.message || 'Login failed! Make sure the server is running and your credentials are correct.');
+              }
+            }} 
+            activeOpacity={0.85}
+          >
             <Text style={styles.buttonText}>Sign In</Text>
           </TouchableOpacity>
 

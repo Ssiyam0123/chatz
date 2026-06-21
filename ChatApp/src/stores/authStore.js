@@ -18,15 +18,15 @@ export const useAuthStore = create(
       login: async (email, password) => {
         try {
           const response = await api.post("/auth/login", { email, password });
-          const { token, data } = response.data;
+          const payload = response.data.data; // payload contains { token, userId, name... }
           set({ 
-            token, 
+            token: payload.token, 
             user: { 
-              id: data.userId, 
-              name: data.name, 
-              email: data.email || email, 
-              avatar: data.avatar, 
-              publicKey: data.publicKey 
+              id: payload.userId || payload.id, 
+              name: payload.name, 
+              email: payload.email || email, 
+              avatar: payload.avatar, 
+              publicKey: payload.publicKey 
             } 
           });
         } catch (error) {
@@ -42,15 +42,16 @@ export const useAuthStore = create(
             email,
             password,
           });
-          const { token, data } = response.data;
+          const payload = response.data.data;
+          const registeredUser = payload.user || payload;
           set({
-            token,
+            token: payload.token,
             user: {
-              id: data.user.id,
-              name: data.user.name,
-              email: data.user.email,
-              avatar: data.user.avatar,
-              publicKey: data.user.publicKey,
+              id: registeredUser.id || registeredUser.userId,
+              name: registeredUser.name,
+              email: registeredUser.email,
+              avatar: registeredUser.avatar,
+              publicKey: registeredUser.publicKey,
             },
           });
         } catch (error) {

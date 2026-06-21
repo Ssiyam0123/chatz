@@ -11,6 +11,13 @@ export default function App() {
   const disconnectChat = useChatStore(state => state.disconnect);
 
   useEffect(() => {
+    // If user object is corrupted (missing ID), force logout to clear bad state
+    if (isHydrated && user && !user.id && !user._id) {
+      console.warn('Corrupted user state detected. Forcing logout...');
+      useAuthStore.getState().logout();
+      return;
+    }
+
     if (isHydrated && token && user) {
       initChat(token, user);
     } else if (isHydrated && !token) {

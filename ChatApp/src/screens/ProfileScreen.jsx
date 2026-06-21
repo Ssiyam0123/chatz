@@ -96,6 +96,12 @@ export default function ProfileScreen({ route, navigation }) {
 
   // Fetch target user profile from server
   useEffect(() => {
+    if (!targetUserId) {
+      console.error('ProfileScreen: targetUserId is undefined! user object in store:', user);
+      setIsLoadingProfile(false);
+      return;
+    }
+    
     setIsLoadingProfile(true);
     api.get(`/user/profile/${targetUserId}`)
       .then(res => {

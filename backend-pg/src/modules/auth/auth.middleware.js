@@ -42,8 +42,10 @@ export const protect = async (req, res, next) => {
 
     // If the user changed their password AFTER this token was issued, reject it.
     if (user.passwordChangedAt && decoded.iat) {
+      // JWT iat is in seconds, so we give a 1-second tolerance to account for the truncation of milliseconds.
       const issuedAt = new Date(decoded.iat * 1000);
-      if (user.passwordChangedAt > issuedAt) {
+      const tolerance = 1000; // 1 second
+      if (user.passwordChangedAt.getTime() - tolerance > issuedAt.getTime()) {
         return next(AppError.unauthorized('Password changed — please log in again'));
       }
     }

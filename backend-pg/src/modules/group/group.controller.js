@@ -46,11 +46,11 @@ export const createGroup = async (req, res) => {
       const placeholders = [];
       let i = 1;
       for (const userId of uniqueMemberIds) {
-        placeholders.push(`($${i++}, $${i++}, NOW(), NOW())`);
+        placeholders.push(`($${i++}, $${i++})`);
         values.push(groupId, userId);
       }
       await pool.query(
-        `INSERT INTO group_members (group_id, user_id, created_at, updated_at) VALUES ${placeholders.join(', ')} ON CONFLICT DO NOTHING`,
+        `INSERT INTO group_members (group_id, user_id) VALUES ${placeholders.join(', ')} ON CONFLICT DO NOTHING`,
         values
       );
     }
@@ -59,6 +59,7 @@ export const createGroup = async (req, res) => {
 
     res.status(201).json({ status: 'success', data: populated });
   } catch (err) {
+    console.error('Error creating group:', err);
     res.status(400).json({ status: 'fail', message: err.message });
   }
 };
@@ -153,11 +154,11 @@ export const addMembers = async (req, res) => {
       const placeholders = [];
       let i = 1;
       for (const userId of memberIds) {
-        placeholders.push(`($${i++}, $${i++}, NOW(), NOW())`);
+        placeholders.push(`($${i++}, $${i++})`);
         values.push(groupId, userId);
       }
       await pool.query(
-        `INSERT INTO group_members (group_id, user_id, created_at, updated_at) VALUES ${placeholders.join(', ')} ON CONFLICT DO NOTHING`,
+        `INSERT INTO group_members (group_id, user_id) VALUES ${placeholders.join(', ')} ON CONFLICT DO NOTHING`,
         values
       );
     }
