@@ -1,5 +1,4 @@
-import { User, FriendRequest, UserFriend } from '../../models/index.js';
-import { Op } from 'sequelize';
+import pool from '../../config/pgDatabase.js';
 
 // Send friend request
 export const sendFriendRequest = async (req, res) => {
@@ -12,22 +11,23 @@ export const sendFriendRequest = async (req, res) => {
     }
 
     // Check receiver exists
-    const receiver = await User.findByPk(receiverId);
-    if (!receiver) {
+    const { rowCount: receiverExists } = await pool.query(
+      'SELECT id FROM users WHERE id = $1',
+      [receiverId]
+    );
+    if (receiverExists === 0) {
       return res.status(404).json({ message: 'Recipient user not found' });
     }
 
     // Check if request already exists
-    const existingRequest = await FriendRequest.findOne({
-      where: {
-        [Op.or]: [
-          { senderId, receiverId },
-          { senderId: receiverId, receiverId: senderId },
-        ],
-      },
-    });
+    const { rows: existingRequests } = await pool.query(
+      `SELECT status, sender_id as "senderId" FROM friend_requests 
+       WHERE (sender_id = $1 AND receiver_id = $2) OR (sender_id = $2 AND receiver_id = $1)`,
+      [senderId, receiverId]
+    );
 
-    if (existingRequest) {
+    if (existingRequests.length > 0) {
+      const existingRequest = existingRequests[0];
       if (existingRequest.status === 'accepted') {
         return res.status(400).json({ message: 'You are already friends' });
       }
@@ -41,19 +41,29 @@ export const sendFriendRequest = async (req, res) => {
     }
 
     // Create friend request
-    const request = await FriendRequest.create({
-      senderId,
-      receiverId,
-      status: 'pending',
-    });
+    const { rows: newRequests } = await pool.query(
+      `INSERT INTO friend_requests (sender_id, receiver_id, status, created_at, updated_at)
+       VALUES ($1, $2, 'pending', NOW(), NOW())
+       RETURNING id, sender_id as "senderId", receiver_id as "receiverId", status, created_at as "createdAt", updated_at as "updatedAt"`,
+      [senderId, receiverId]
+    );
+    
+    const request = newRequests[0];
 
     // Fetch with user details
-    const populatedRequest = await FriendRequest.findByPk(request.id, {
-      include: [
-        { association: 'sender', attributes: ['id', 'name', 'avatar', 'bio', 'publicKey'] },
-        { association: 'receiver', attributes: ['id', 'name', 'avatar', 'bio', 'publicKey'] },
-      ],
-    });
+    const { rows: populatedRequests } = await pool.query(
+      `SELECT 
+        fr.id, fr.sender_id as "senderId", fr.receiver_id as "receiverId", fr.status, fr.created_at as "createdAt", fr.updated_at as "updatedAt",
+        json_build_object('id', s.id, 'name', s.name, 'avatar', s.avatar, 'bio', s.bio, 'publicKey', s.public_key) as sender,
+        json_build_object('id', r.id, 'name', r.name, 'avatar', r.avatar, 'bio', r.bio, 'publicKey', r.public_key) as receiver
+       FROM friend_requests fr
+       JOIN users s ON fr.sender_id = s.id
+       JOIN users r ON fr.receiver_id = r.id
+       WHERE fr.id = $1`,
+      [request.id]
+    );
+
+    const populatedRequest = populatedRequests[0];
 
     res.status(201).json({
       status: 'success',
@@ -88,7 +98,12 @@ export const respondToFriendRequest = async (req, res) => {
       return res.status(400).json({ message: 'Invalid status response' });
     }
 
-    const request = await FriendRequest.findByPk(requestId);
+    const { rows: requests } = await pool.query(
+      'SELECT id, sender_id as "senderId", receiver_id as "receiverId", status FROM friend_requests WHERE id = $1',
+      [requestId]
+    );
+
+    const request = requests[0];
     if (!request) {
       return res.status(404).json({ message: 'Friend request not found' });
     }
@@ -102,24 +117,35 @@ export const respondToFriendRequest = async (req, res) => {
       return res.status(400).json({ message: `Friend request has already been ${request.status}` });
     }
 
-    request.status = status;
-    await request.save();
-
     if (status === 'accepted') {
+      await pool.query(
+        'UPDATE friend_requests SET status = $1, updated_at = NOW() WHERE id = $2',
+        [status, requestId]
+      );
+      
       // Add bidirectional friendship records
-      await UserFriend.bulkCreate([
-        { userId: request.senderId, friendId: request.receiverId },
-        { userId: request.receiverId, friendId: request.senderId },
-      ], { ignoreDuplicates: true });
+      await pool.query(
+        `INSERT INTO user_friends (user_id, friend_id, created_at, updated_at) 
+         VALUES ($1, $2, NOW(), NOW()), ($2, $1, NOW(), NOW())
+         ON CONFLICT DO NOTHING`,
+        [request.senderId, request.receiverId]
+      );
     } else {
       // Delete declined request so users can request again
-      await request.destroy();
+      await pool.query('DELETE FROM friend_requests WHERE id = $1', [requestId]);
     }
+    
+    // Fetch updated request
+    const { rows: updatedRequests } = await pool.query(
+      'SELECT id, sender_id as "senderId", receiver_id as "receiverId", status, created_at as "createdAt", updated_at as "updatedAt" FROM friend_requests WHERE id = $1',
+      [requestId]
+    );
+    const updatedRequest = updatedRequests[0] || { ...request, status };
 
     res.status(200).json({
       status: 'success',
       message: `Friend request ${status}`,
-      data: request,
+      data: updatedRequest,
     });
 
     // Emit socket event
@@ -134,7 +160,7 @@ export const respondToFriendRequest = async (req, res) => {
           io.to(socketId).emit('friend_request_responded', {
             requestId: request.id,
             status,
-            request
+            request: updatedRequest
           });
         }
       }
@@ -145,7 +171,7 @@ export const respondToFriendRequest = async (req, res) => {
           io.to(socketId).emit('friend_request_responded', {
             requestId: request.id,
             status,
-            request
+            request: updatedRequest
           });
         }
       }
@@ -160,16 +186,17 @@ export const getFriendRequests = async (req, res) => {
   try {
     const userId = req.user.id;
 
-    const requests = await FriendRequest.findAll({
-      where: {
-        [Op.or]: [{ receiverId: userId }, { senderId: userId }],
-        status: 'pending',
-      },
-      include: [
-        { association: 'sender', attributes: ['id', 'name', 'email', 'avatar', 'bio', 'publicKey'] },
-        { association: 'receiver', attributes: ['id', 'name', 'email', 'avatar', 'bio', 'publicKey'] },
-      ],
-    });
+    const { rows: requests } = await pool.query(
+      `SELECT 
+        fr.id, fr.sender_id as "senderId", fr.receiver_id as "receiverId", fr.status, fr.created_at as "createdAt", fr.updated_at as "updatedAt",
+        json_build_object('id', s.id, 'name', s.name, 'email', s.email, 'avatar', s.avatar, 'bio', s.bio, 'publicKey', s.public_key) as sender,
+        json_build_object('id', r.id, 'name', r.name, 'email', r.email, 'avatar', r.avatar, 'bio', r.bio, 'publicKey', r.public_key) as receiver
+       FROM friend_requests fr
+       JOIN users s ON fr.sender_id = s.id
+       JOIN users r ON fr.receiver_id = r.id
+       WHERE (fr.receiver_id = $1 OR fr.sender_id = $1) AND fr.status = 'pending'`,
+      [userId]
+    );
 
     res.status(200).json({
       status: 'success',
@@ -184,20 +211,16 @@ export const getFriendRequests = async (req, res) => {
 export const getFriends = async (req, res) => {
   try {
     const userId = req.user.id;
-    const friendships = await UserFriend.findAll({
-      where: { userId },
-      include: [
-        {
-          association: 'friend',
-          attributes: ['id', 'name', 'email', 'avatar', 'bio', 'publicKey'],
-        },
-      ],
-    });
-
-    const friends = friendships
-      .map((f) => f.friend)
-      .filter(Boolean)
-      .sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+    
+    const { rows: friends } = await pool.query(
+      `SELECT 
+        u.id, u.name, u.email, u.avatar, u.bio, u.public_key as "publicKey"
+       FROM user_friends uf
+       JOIN users u ON uf.friend_id = u.id
+       WHERE uf.user_id = $1
+       ORDER BY u.name ASC`,
+      [userId]
+    );
 
     res.status(200).json({
       status: 'success',
@@ -215,24 +238,18 @@ export const removeFriend = async (req, res) => {
     const { friendId } = req.params;
 
     // Remove bidirectional friendship records
-    await UserFriend.destroy({
-      where: {
-        [Op.or]: [
-          { userId, friendId },
-          { userId: friendId, friendId: userId },
-        ],
-      },
-    });
+    await pool.query(
+      `DELETE FROM user_friends 
+       WHERE (user_id = $1 AND friend_id = $2) OR (user_id = $2 AND friend_id = $1)`,
+      [userId, friendId]
+    );
 
     // Remove any friend request records
-    await FriendRequest.destroy({
-      where: {
-        [Op.or]: [
-          { senderId: userId, receiverId: friendId },
-          { senderId: friendId, receiverId: userId },
-        ],
-      },
-    });
+    await pool.query(
+      `DELETE FROM friend_requests 
+       WHERE (sender_id = $1 AND receiver_id = $2) OR (sender_id = $2 AND receiver_id = $1)`,
+      [userId, friendId]
+    );
 
     res.status(200).json({
       status: 'success',
@@ -272,39 +289,28 @@ export const getSuggestions = async (req, res) => {
     const limit = parseInt(req.query.limit || '15');
     const offset = (page - 1) * limit;
 
-    // Get current user and their friends
-    const user = await User.findByPk(userId, {
-      include: [{ association: 'friends', attributes: ['id'] }],
-    });
+    const { rows: countRows } = await pool.query(
+      `SELECT COUNT(*) as count 
+       FROM users 
+       WHERE id != $1 
+         AND id NOT IN (SELECT friend_id FROM user_friends WHERE user_id = $1)
+         AND id NOT IN (SELECT sender_id FROM friend_requests WHERE receiver_id = $1 OR sender_id = $1)
+         AND id NOT IN (SELECT receiver_id FROM friend_requests WHERE receiver_id = $1 OR sender_id = $1)`,
+      [userId]
+    );
+    const count = parseInt(countRows[0].count);
 
-    if (!user) {
-      return res.status(404).json({ message: 'User not found' });
-    }
-
-    // Build exclude list: self + current friends
-    const excludeIds = [userId, ...user.friends.map((f) => f.id)];
-
-    // Also exclude anyone with pending/accepted requests involving this user
-    const activeRequests = await FriendRequest.findAll({
-      where: {
-        [Op.or]: [{ senderId: userId }, { receiverId: userId }],
-      },
-    });
-
-    activeRequests.forEach((r) => {
-      excludeIds.push(r.senderId);
-      excludeIds.push(r.receiverId);
-    });
-
-    const uniqueExcludeIds = [...new Set(excludeIds)];
-
-    const { count, rows: suggestions } = await User.findAndCountAll({
-      where: { id: { [Op.notIn]: uniqueExcludeIds } },
-      attributes: ['id', 'name', 'avatar', 'bio', 'publicKey'],
-      limit,
-      offset,
-      order: [['name', 'ASC']],
-    });
+    const { rows: suggestions } = await pool.query(
+      `SELECT id, name, avatar, bio, public_key as "publicKey" 
+       FROM users 
+       WHERE id != $1 
+         AND id NOT IN (SELECT friend_id FROM user_friends WHERE user_id = $1)
+         AND id NOT IN (SELECT sender_id FROM friend_requests WHERE receiver_id = $1 OR sender_id = $1)
+         AND id NOT IN (SELECT receiver_id FROM friend_requests WHERE receiver_id = $1 OR sender_id = $1)
+       ORDER BY name ASC 
+       LIMIT $2 OFFSET $3`,
+      [userId, limit, offset]
+    );
 
     res.status(200).json({
       status: 'success',

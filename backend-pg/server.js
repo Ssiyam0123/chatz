@@ -2,11 +2,11 @@ import './src/config/env.js';
 import express from 'express';
 import http from 'http';
 import cors from 'cors';
+import helmet from 'helmet';
+import rateLimit from 'express-rate-limit';
 import axios from 'axios';
-import { Op } from 'sequelize';
-import sequelize from './src/config/database.js';
+import pool from './src/config/pgDatabase.js';
 import { initSocket } from './src/modules/socket/socket.handler.js';
-import { Story, StoryViewer } from './src/models/index.js';
 
 import authRoutes from './src/modules/auth/auth.route.js';
 import chatRoutes from './src/modules/chat/chat.route.js';
@@ -17,12 +17,14 @@ import friendRoutes from './src/modules/friend/friend.route.js';
 import postRoutes from './src/modules/post/post.route.js';
 import storyRoutes from './src/modules/story/story.route.js';
 
-import path from 'path';
-import fs from 'fs';
-
 const app = express();
 const server = http.createServer(app);
+const isDev = process.env.NODE_ENV !== 'production';
 
+// ─── Security headers ────────────────────────────────────────────────────────
+app.use(helmet({ contentSecurityPolicy: isDev ? false : undefined }));
+
+// ─── CORS ────────────────────────────────────────────────────────────────────
 const allowedOrigins = [
   'http://localhost:8081',
   process.env.FRONTEND_URL,
@@ -33,10 +35,13 @@ const corsOptions = {
     if (
       !origin ||
       allowedOrigins.indexOf(origin) !== -1 ||
-      origin.startsWith('http://192.168.') ||
-      origin.startsWith('http://10.0.2.') ||
-      origin.startsWith('http://localhost') ||
-      origin.startsWith('http://127.0.0.1')
+      // Permissive LAN origins only in dev.
+      (isDev && (
+        origin.startsWith('http://192.168.') ||
+        origin.startsWith('http://10.0.2.') ||
+        origin.startsWith('http://localhost') ||
+        origin.startsWith('http://127.0.0.1')
+      ))
     ) {
       callback(null, true);
     } else {
@@ -50,10 +55,28 @@ const corsOptions = {
 };
 
 app.use(cors(corsOptions));
-app.use(express.json({ limit: '10mb' }));
-app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
-// Simple Clean Request Logger
+// JSON body limit reduced: large payloads are a DoS vector.
+// Image uploads go through multer (separate 5mb limit), not JSON.
+app.use(express.json({ limit: '2mb' }));
+app.use(express.urlencoded({ extended: true, limit: '2mb' }));
+
+// ─── Rate limiting ────────────────────────────────────────────────────────────
+const globalLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 300,
+  message: { status: 'error', error: { code: 'TOO_MANY_REQUESTS', message: 'Too many requests, try again later' } },
+});
+
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 20,
+  message: { status: 'error', error: { code: 'TOO_MANY_REQUESTS', message: 'Too many login attempts, try again later' } },
+});
+
+app.use(globalLimiter);
+
+// ─── Request logger ──────────────────────────────────────────────────────────
 app.use((req, res, next) => {
   const start = Date.now();
   res.on('finish', () => {
@@ -67,7 +90,7 @@ app.get('/health', (req, res) => {
   res.status(200).json({ status: 'ok', timestamp: new Date().toISOString() });
 });
 
-app.use('/api/v1/auth', authRoutes);
+app.use('/api/v1/auth', authLimiter, authRoutes);
 app.use('/api/v1/chat', chatRoutes);
 app.use('/api/v1/user', userRoutes);
 app.use('/api/v1/groups', groupRoutes);
@@ -76,21 +99,43 @@ app.use('/api/v1/friends', friendRoutes);
 app.use('/api/v1/posts', postRoutes);
 app.use('/api/v1/stories', storyRoutes);
 
-// Global error handler
+// ─── Global error handler ────────────────────────────────────────────────────
+// Produces the standard { status:'error', error:{ code, message } } envelope.
 app.use((err, req, res, next) => {
-  const statusCode = err.statusCode || 500;
-  console.error(`🔥 Error: ${err.message}`);
+  let statusCode = err.statusCode || 500;
+  let code = err.code || null;
+  let message = err.message || 'Internal Server Error';
+
+  // Sequelize validation errors → 400/409
+  if (err.name === 'SequelizeValidationError' || err.name === 'SequelizeUniqueConstraintError') {
+    statusCode = err.name === 'SequelizeUniqueConstraintError' ? 409 : 400;
+    code = code || (err.name === 'SequelizeUniqueConstraintError' ? 'CONFLICT' : 'VALIDATION_ERROR');
+    message = err.errors?.map((e) => e.message).join(', ') || message;
+  }
+
+  // Zod validation errors (from the validate() middleware) → 422
+  if (err.name === 'ZodError' && Array.isArray(err.issues)) {
+    statusCode = 422;
+    code = 'VALIDATION_ERROR';
+    message = err.issues.map((i) => `${i.path.join('.') || 'value'}: ${i.message}`).join('; ');
+  }
+
+  if (statusCode >= 500) {
+    console.error(`🔥 Error: ${err.message}`);
+    if (isDev) console.error(err.stack);
+  }
+
   res.status(statusCode).json({
     status: 'error',
-    message: err.message || 'Internal Server Error',
-    stack: process.env.NODE_ENV === 'development' ? err.stack : undefined,
+    error: { code, message },
+    ...(isDev ? { stack: err.stack } : {}),
   });
 });
 
 const io = initSocket(server);
 app.set('io', io);
 
-// Keep-alive ping for production
+// ─── Keep-alive ping for production (opt-in) ──────────────────────────────────
 const keepAlive = (url) => {
   if (!url) return;
   setInterval(() => {
@@ -101,22 +146,19 @@ const keepAlive = (url) => {
   }, 10 * 60 * 1000);
 };
 
-const PORT = process.env.PORT || 5002; // Using 5002 to avoid conflict with original backend
+const PORT = process.env.PORT || 5002;
 
 // ─── Story Cleanup Job (runs every hour) ─────────────────────────────────────
 const cleanupOldStories = async () => {
   try {
-    const cutoff = new Date(Date.now() - 24 * 60 * 60 * 1000);
-
-    const oldStories = await Story.findAll({
-      where: { createdAt: { [Op.lt]: cutoff } },
-      attributes: ['id'],
-    });
+    const { rows: oldStories } = await pool.query(
+      "SELECT id FROM stories WHERE created_at < NOW() - INTERVAL '24 HOURS'"
+    );
 
     if (oldStories.length > 0) {
       const ids = oldStories.map((s) => s.id);
-      await StoryViewer.destroy({ where: { storyId: { [Op.in]: ids } } });
-      await Story.destroy({ where: { id: { [Op.in]: ids } } });
+      await pool.query('DELETE FROM story_viewers WHERE story_id = ANY($1)', [ids]);
+      await pool.query('DELETE FROM stories WHERE id = ANY($1)', [ids]);
       console.log(`🧹 Cleaned up ${oldStories.length} expired stories`);
     }
   } catch (err) {
@@ -124,14 +166,10 @@ const cleanupOldStories = async () => {
   }
 };
 
-sequelize
-  .authenticate()
+pool
+  .query('SELECT 1')
   .then(async () => {
     console.log('✅ PostgreSQL Connected Successfully');
-
-    // Sync models (create tables if they don't exist)
-    await sequelize.sync();
-    console.log('✅ Database models synced');
 
     server.listen(PORT, () => {
       console.log(`🚀 Server is running on port ${PORT}`);
@@ -140,7 +178,8 @@ sequelize
       cleanupOldStories();
       setInterval(cleanupOldStories, 60 * 60 * 1000);
 
-      if (process.env.NODE_ENV === 'production') {
+      // Keep-alive only when explicitly enabled
+      if (process.env.KEEPALIVE_ENABLED === 'true' && process.env.SERVER_URL) {
         keepAlive(process.env.SERVER_URL);
       }
     });
@@ -149,4 +188,3 @@ sequelize
     console.error('❌ DB Connection Error:', err.message);
     process.exit(1);
   });
-// Trigger nodemon reload for new environment variables

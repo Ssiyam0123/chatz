@@ -62,6 +62,9 @@ export const getGroupMessages = (groupId) => api.get(`/groups/${groupId}/message
 export const addGroupMembers = (groupId, memberIds) =>
   api.post('/groups/add-members', { groupId, memberIds });
 
+// ─── Friends ─────────────────────────────────────────────────────────────────
+export const getFriends = () => api.get('/friends');
+
 // ─── Upload ──────────────────────────────────────────────────────────────────
 export const uploadImage = async (file) => {
   const formData = new FormData();

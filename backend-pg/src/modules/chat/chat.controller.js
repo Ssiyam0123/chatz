@@ -1,6 +1,4 @@
-import { User, Message, Group, GroupMember, GroupMessage, UserFriend } from '../../models/index.js';
-import { Op } from 'sequelize';
-import sequelize from '../../config/database.js';
+import pool from '../../config/pgDatabase.js';
 
 export const getAllUsers = async (req, res) => {
   try {
@@ -9,24 +7,24 @@ export const getAllUsers = async (req, res) => {
     const offset = (page - 1) * limit;
     const search = req.query.search || '';
 
-    const whereClause = {
-      id: { [Op.ne]: req.user.id },
-    };
+    let countSql = 'SELECT COUNT(*) FROM users WHERE id != $1';
+    let dataSql = 'SELECT id, name, email, avatar, bio, public_key as "publicKey" FROM users WHERE id != $1';
+    const values = [req.user.id];
 
     if (search) {
-      whereClause[Op.or] = [
-        { name: { [Op.iLike]: `%${search}%` } },
-        { email: { [Op.iLike]: `%${search}%` } },
-      ];
+      countSql += ' AND (name ILIKE $2 OR email ILIKE $2)';
+      dataSql += ' AND (name ILIKE $2 OR email ILIKE $2)';
+      values.push(`%${search}%`);
     }
 
-    const { count, rows: users } = await User.findAndCountAll({
-      where: whereClause,
-      attributes: ['id', 'name', 'email', 'avatar', 'bio', 'publicKey'],
-      limit,
-      offset,
-      order: [['name', 'ASC']],
-    });
+    dataSql += ` ORDER BY name ASC LIMIT $${values.length + 1} OFFSET $${values.length + 2}`;
+
+    const [{ rows: countRows }, { rows: users }] = await Promise.all([
+      pool.query(countSql, values),
+      pool.query(dataSql, [...values, limit, offset]),
+    ]);
+
+    const count = parseInt(countRows[0].count);
 
     res.status(200).json({
       status: 'success',
@@ -49,45 +47,43 @@ export const getChatHistory = async (req, res) => {
     const limit = parseInt(req.query.limit || '30');
     const before = req.query.before; // ISO timestamp string or cursor
 
-    // Friend request system guard - check UserFriend link table directly
-    const isFriend = await UserFriend.findOne({
-      where: {
-        [Op.or]: [
-          { userId: req.user.id, friendId: partnerId },
-          { userId: partnerId, friendId: req.user.id }
-        ]
-      }
-    });
+    // Friend request system guard - check user_friends link table directly
+    const { rows: friendRows } = await pool.query(
+      `SELECT 1 FROM user_friends 
+       WHERE (user_id = $1 AND friend_id = $2) OR (user_id = $2 AND friend_id = $1)`,
+      [req.user.id, partnerId]
+    );
 
-    if (!isFriend) {
+    if (friendRows.length === 0) {
       return res.status(403).json({
         status: 'error',
         message: 'You can only view chat history with friends.',
       });
     }
 
-    const whereClause = {
-      [Op.or]: [
-        { senderId: req.user.id, receiverId: partnerId },
-        { senderId: partnerId, receiverId: req.user.id },
-      ],
-    };
+    let sql = `
+      SELECT 
+        m.id, m.text, m.image, m.ciphertext, m.nonce, m.is_encrypted as "isEncrypted", m.created_at as "createdAt", m.updated_at as "updatedAt",
+        m.sender_id as "senderId", m.receiver_id as "receiverId",
+        json_build_object('id', s.id, 'name', s.name, 'avatar', s.avatar, 'publicKey', s.public_key) as sender,
+        json_build_object('id', r.id, 'name', r.name, 'avatar', r.avatar, 'publicKey', r.public_key) as receiver
+      FROM messages m
+      JOIN users s ON m.sender_id = s.id
+      JOIN users r ON m.receiver_id = r.id
+      WHERE ((m.sender_id = $1 AND m.receiver_id = $2) OR (m.sender_id = $2 AND m.receiver_id = $1))
+    `;
+
+    const values = [req.user.id, partnerId];
 
     if (before) {
-      whereClause.createdAt = {
-        [Op.lt]: new Date(before),
-      };
+      sql += ` AND m.created_at < $3`;
+      values.push(new Date(before));
     }
 
-    const messages = await Message.findAll({
-      where: whereClause,
-      include: [
-        { association: 'sender', attributes: ['id', 'name', 'avatar', 'publicKey'] },
-        { association: 'receiver', attributes: ['id', 'name', 'avatar', 'publicKey'] },
-      ],
-      order: [['createdAt', 'DESC']],
-      limit,
-    });
+    sql += ` ORDER BY m.created_at DESC LIMIT $${values.length + 1}`;
+    values.push(limit);
+
+    const { rows: messages } = await pool.query(sql, values);
 
     // Reverse to return in chronological order
     messages.reverse();
@@ -114,15 +110,15 @@ export const getConversations = async (req, res) => {
       FROM (
         SELECT DISTINCT ON (
           CASE 
-            WHEN sender_id = :userId THEN receiver_id 
+            WHEN sender_id = $1 THEN receiver_id 
             ELSE sender_id 
           END
         ) *
         FROM messages
-        WHERE sender_id = :userId OR receiver_id = :userId
+        WHERE sender_id = $1 OR receiver_id = $1
         ORDER BY 
           CASE 
-            WHEN sender_id = :userId THEN receiver_id 
+            WHEN sender_id = $1 THEN receiver_id 
             ELSE sender_id 
           END,
           created_at DESC
@@ -132,10 +128,7 @@ export const getConversations = async (req, res) => {
       ORDER BY m.created_at DESC
     `;
 
-    const conversationsResult = await sequelize.query(rawConversationsQuery, {
-      replacements: { userId },
-      type: sequelize.QueryTypes.SELECT,
-    });
+    const { rows: conversationsResult } = await pool.query(rawConversationsQuery, [userId]);
 
     // Format results to match the original structure expected by frontend
     const directConversations = conversationsResult.map((row) => {
@@ -158,28 +151,27 @@ export const getConversations = async (req, res) => {
     });
 
     // ─── Fetch Group Conversations ───
-    const memberships = await GroupMember.findAll({
-      where: { userId },
-      attributes: ['groupId'],
-    });
+    const { rows: memberships } = await pool.query('SELECT group_id as "groupId" FROM group_members WHERE user_id = $1', [userId]);
     const groupIds = memberships.map((m) => m.groupId);
 
-    const groups = await Group.findAll({
-      where: { id: { [Op.in]: groupIds } },
-      attributes: ['id', 'name', 'avatar', 'createdAt'],
-    });
+    let groups = [];
+    if (groupIds.length > 0) {
+      const { rows } = await pool.query(
+        `SELECT id, name, avatar, created_at as "createdAt" FROM groups WHERE id = ANY($1)`,
+        [groupIds]
+      );
+      groups = rows;
+    }
 
     let latestGroupMessages = [];
     if (groupIds.length > 0) {
-      latestGroupMessages = await sequelize.query(`
+      const { rows } = await pool.query(`
         SELECT DISTINCT ON (group_id) group_id AS "groupId", text, image, created_at AS "createdAt"
         FROM group_messages
-        WHERE group_id IN (:groupIds)
+        WHERE group_id = ANY($1)
         ORDER BY group_id, created_at DESC
-      `, {
-        replacements: { groupIds },
-        type: sequelize.QueryTypes.SELECT,
-      });
+      `, [groupIds]);
+      latestGroupMessages = rows;
     }
 
     const groupMessagesMap = {};

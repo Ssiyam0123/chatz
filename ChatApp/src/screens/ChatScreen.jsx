@@ -251,15 +251,17 @@ export default function ChatScreen({ route }) {
       {isWeb ? (
         <View style={styles.container}>{ChatContent}</View>
       ) : (
-        <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
-          <KeyboardAvoidingView
-            style={styles.container}
-            behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-            keyboardVerticalOffset={headerHeight + 10}
-          >
-            {ChatContent}
-          </KeyboardAvoidingView>
-        </TouchableWithoutFeedback>
+        <KeyboardAvoidingView
+          style={styles.container}
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          keyboardVerticalOffset={headerHeight + 10}
+        >
+          <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
+            <View style={{ flex: 1 }}>
+              {ChatContent}
+            </View>
+          </TouchableWithoutFeedback>
+        </KeyboardAvoidingView>
       )}
       <Modal
         animationType="slide"

@@ -1,6 +1,6 @@
 import { Server } from 'socket.io';
 import jwt from 'jsonwebtoken';
-import { Message, GroupMessage, User, Group, GroupMember } from '../../models/index.js';
+import pool from '../../config/pgDatabase.js';
 
 const userSockets = new Map();
 
@@ -58,44 +58,57 @@ export const initSocket = (server) => {
     socket.on('send_message', async ({ receiverId, text, image, ciphertext, nonce, isEncrypted, clientId }) => {
       console.log(`📨 DM from ${userId} to ${receiverId} clientId=${clientId} encrypted=${!!isEncrypted}`);
       try {
-        // Friend request system guard
-        const senderUser = await User.findByPk(userId, {
-          include: [{ association: 'friends', attributes: ['id'] }],
-        });
-        const isFriend = senderUser.friends?.some((f) => f.id === receiverId);
-        if (!senderUser || !isFriend) {
+        // Friend request system guard - check UserFriend link table
+        const { rowCount: isFriend } = await pool.query(
+          `SELECT 1 FROM user_friends 
+           WHERE (user_id = $1 AND friend_id = $2) OR (user_id = $2 AND friend_id = $1)`,
+          [userId, receiverId]
+        );
+
+        if (isFriend === 0) {
           return socket.emit('message_error', {
             message: 'You can only send messages to users who are in your friends list.',
             clientId,
           });
         }
 
-        const newMessage = await Message.create({
-          senderId: userId,
-          receiverId,
-          text: text || '',
-          image: image || null,
-          ciphertext: ciphertext || null,
-          nonce: nonce || null,
-          isEncrypted: !!isEncrypted,
-        });
+        const { rows: messages } = await pool.query(
+          `INSERT INTO messages (sender_id, receiver_id, text, image, ciphertext, nonce, is_encrypted, created_at, updated_at) 
+           VALUES ($1, $2, $3, $4, $5, $6, $7, NOW(), NOW()) 
+           RETURNING id, created_at as "createdAt"`,
+          [userId, receiverId, text || '', image || null, ciphertext || null, nonce || null, !!isEncrypted]
+        );
 
-        const populatedMessage = await Message.findByPk(newMessage.id, {
-          include: [
-            { association: 'sender', attributes: ['id', 'name', 'avatar', 'publicKey'] },
-            { association: 'receiver', attributes: ['id', 'name', 'avatar', 'publicKey'] },
-          ],
-        });
+        const newMessageId = messages[0].id;
+        const newMessageCreatedAt = messages[0].createdAt;
 
-        const senderUserDetails = await User.findByPk(userId, { attributes: ['id', 'name', 'avatar'] });
-        const receiverUserDetails = await User.findByPk(receiverId, { attributes: ['id', 'name', 'avatar'] });
+        const { rows: populatedMessages } = await pool.query(
+          `SELECT 
+            m.id, m.text, m.image, m.ciphertext, m.nonce, m.is_encrypted as "isEncrypted", m.created_at as "createdAt", m.updated_at as "updatedAt",
+            m.sender_id as "senderId", m.receiver_id as "receiverId",
+            json_build_object('id', s.id, 'name', s.name, 'avatar', s.avatar, 'publicKey', s.public_key) as sender,
+            json_build_object('id', r.id, 'name', r.name, 'avatar', r.avatar, 'publicKey', r.public_key) as receiver
+           FROM messages m
+           JOIN users s ON m.sender_id = s.id
+           JOIN users r ON m.receiver_id = r.id
+           WHERE m.id = $1`,
+          [newMessageId]
+        );
+
+        const populatedMessage = populatedMessages[0];
+
+        const { rows: senderRows } = await pool.query('SELECT id, name, avatar FROM users WHERE id = $1', [userId]);
+        const { rows: receiverRows } = await pool.query('SELECT id, name, avatar FROM users WHERE id = $1', [receiverId]);
+
+        const senderUserDetails = senderRows[0];
+        const receiverUserDetails = receiverRows[0];
 
         const serialized = serialize(populatedMessage);
 
         const conversationForReceiver = {
           _id: userId,
           lastMessage: isEncrypted ? '🔒 Encrypted Message' : image ? '📷 Image' : text,
-          lastMessageTime: newMessage.createdAt,
+          lastMessageTime: newMessageCreatedAt,
           lastMessageImage: image || null,
           lastMessageCiphertext: ciphertext || null,
           lastMessageNonce: nonce || null,
@@ -110,7 +123,7 @@ export const initSocket = (server) => {
         const conversationForSender = {
           _id: receiverId,
           lastMessage: isEncrypted ? '🔒 Encrypted Message' : image ? '📷 Image' : text,
-          lastMessageTime: newMessage.createdAt,
+          lastMessageTime: newMessageCreatedAt,
           lastMessageImage: image || null,
           lastMessageCiphertext: ciphertext || null,
           lastMessageNonce: nonce || null,
@@ -153,11 +166,12 @@ export const initSocket = (server) => {
       console.log(`📨 Group msg from ${userId} to group ${groupId} clientId=${clientId}`);
       try {
         // Check membership
-        const membership = await GroupMember.findOne({
-          where: { groupId, userId },
-        });
+        const { rowCount: membership } = await pool.query(
+          'SELECT 1 FROM group_members WHERE group_id = $1 AND user_id = $2',
+          [groupId, userId]
+        );
 
-        if (!membership) {
+        if (membership === 0) {
           console.log(`🚫 User ${userId} is not a member of group ${groupId}`);
           return socket.emit('message_error', {
             clientId,
@@ -165,34 +179,45 @@ export const initSocket = (server) => {
           });
         }
 
-        const newMessage = await GroupMessage.create({
-          groupId,
-          senderId: userId,
-          text: text || '',
-          image: image || null,
-        });
+        const { rows: messages } = await pool.query(
+          `INSERT INTO group_messages (group_id, sender_id, text, image, created_at, updated_at) 
+           VALUES ($1, $2, $3, $4, NOW(), NOW()) RETURNING id, created_at as "createdAt"`,
+          [groupId, userId, text || '', image || null]
+        );
 
-        const populatedMessage = await GroupMessage.findByPk(newMessage.id, {
-          include: [{ association: 'sender', attributes: ['id', 'name', 'avatar'] }],
-        });
+        const newMessageId = messages[0].id;
+        const newMessageCreatedAt = messages[0].createdAt;
 
+        const { rows: populatedMessages } = await pool.query(
+          `SELECT 
+            gm.id, gm.text, gm.image, gm.created_at as "createdAt", gm.updated_at as "updatedAt",
+            gm.group_id as "groupId", gm.sender_id as "senderId",
+            json_build_object('id', s.id, 'name', s.name, 'avatar', s.avatar) as sender
+           FROM group_messages gm
+           JOIN users s ON gm.sender_id = s.id
+           WHERE gm.id = $1`,
+          [newMessageId]
+        );
+
+        const populatedMessage = populatedMessages[0];
         const serialized = serialize(populatedMessage);
 
-        const group = await Group.findByPk(groupId, {
-          include: [{ association: 'members', attributes: ['id'] }],
-        });
+        const { rows: groups } = await pool.query('SELECT name, avatar FROM groups WHERE id = $1', [groupId]);
+        const group = groups[0];
+
+        const { rows: groupMembers } = await pool.query('SELECT user_id as "id" FROM group_members WHERE group_id = $1', [groupId]);
 
         const groupConvUpdate = {
           _id: groupId,
           name: group.name,
           avatar: group.avatar,
           lastMessage: image ? '📷 Image' : text,
-          lastMessageTime: newMessage.createdAt,
+          lastMessageTime: newMessageCreatedAt,
           isGroup: true,
         };
 
         // Broadcast to all online group members
-        for (const member of group.members) {
+        for (const member of groupMembers) {
           const memberSockets = userSockets.get(member.id);
           if (memberSockets) {
             for (const socketId of memberSockets) {
@@ -211,12 +236,9 @@ export const initSocket = (server) => {
 
     socket.on('typing_group', async ({ groupId, isTyping }) => {
       try {
-        const group = await Group.findByPk(groupId, {
-          include: [{ association: 'members', attributes: ['id'] }],
-        });
-        if (!group) return;
-
-        for (const member of group.members) {
+        const { rows: groupMembers } = await pool.query('SELECT user_id as "id" FROM group_members WHERE group_id = $1', [groupId]);
+        
+        for (const member of groupMembers) {
           if (member.id !== userId) {
             const memberSockets = userSockets.get(member.id);
             if (memberSockets) {

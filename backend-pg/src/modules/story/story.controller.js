@@ -1,5 +1,26 @@
-import { Story, StoryViewer, User } from '../../models/index.js';
-import { Op } from 'sequelize';
+import pool from '../../config/pgDatabase.js';
+
+// Helper to get populated story
+const getPopulatedStory = async (storyId) => {
+  const sql = `
+    SELECT 
+      s.id, s.image, s.text, s.created_at as "createdAt", s.updated_at as "updatedAt",
+      json_build_object('id', u.id, 'name', u.name, 'avatar', u.avatar) as user,
+      COALESCE(
+        (SELECT json_agg(
+          json_build_object(
+            'id', sv.id, 'story_id', sv.story_id, 'user_id', sv.user_id, 'created_at', sv.created_at,
+            'user', json_build_object('id', vu.id, 'name', vu.name, 'avatar', vu.avatar)
+          )
+        ) FROM story_viewers sv JOIN users vu ON sv.user_id = vu.id WHERE sv.story_id = s.id), '[]'::json
+      ) as viewers
+    FROM stories s
+    JOIN users u ON s.user_id = u.id
+    WHERE s.id = $1
+  `;
+  const { rows } = await pool.query(sql, [storyId]);
+  return rows[0];
+};
 
 // Create a new story
 export const createStory = async (req, res) => {
@@ -10,15 +31,13 @@ export const createStory = async (req, res) => {
       return res.status(400).json({ status: 'error', message: 'Story image is required' });
     }
 
-    const story = await Story.create({
-      userId: req.user.id,
-      image,
-      text: text || '',
-    });
+    const { rows: stories } = await pool.query(
+      `INSERT INTO stories (user_id, image, text, created_at, updated_at) 
+       VALUES ($1, $2, $3, NOW(), NOW()) RETURNING id`,
+      [req.user.id, image, text || '']
+    );
 
-    const populatedStory = await Story.findByPk(story.id, {
-      include: [{ association: 'user', attributes: ['id', 'name', 'avatar'] }],
-    });
+    const populatedStory = await getPopulatedStory(stories[0].id);
 
     // Broadcast new story event
     const io = req.app.get('io');
@@ -35,26 +54,27 @@ export const createStory = async (req, res) => {
 // Get stories of current user and their friends (active in the last 24 hours)
 export const getStories = async (req, res) => {
   try {
-    const user = await User.findByPk(req.user.id, {
-      include: [{ association: 'friends', attributes: ['id'] }],
-    });
+    // We can do this in one complex query to fetch friends + self stories within last 24h
+    const sql = `
+      SELECT 
+        s.id, s.image, s.text, s.created_at as "createdAt", s.updated_at as "updatedAt",
+        json_build_object('id', u.id, 'name', u.name, 'avatar', u.avatar) as user,
+        COALESCE(
+          (SELECT json_agg(
+            json_build_object(
+              'id', sv.id, 'story_id', sv.story_id, 'user_id', sv.user_id, 'created_at', sv.created_at,
+              'user', json_build_object('id', vu.id, 'name', vu.name, 'avatar', vu.avatar)
+            )
+          ) FROM story_viewers sv JOIN users vu ON sv.user_id = vu.id WHERE sv.story_id = s.id), '[]'::json
+        ) as viewers
+      FROM stories s
+      JOIN users u ON s.user_id = u.id
+      WHERE (s.user_id = $1 OR s.user_id IN (SELECT friend_id FROM user_friends WHERE user_id = $1))
+        AND s.created_at >= NOW() - INTERVAL '24 HOURS'
+      ORDER BY s.created_at ASC
+    `;
 
-    const friendIds = user.friends.map((f) => f.id);
-    const userIds = [req.user.id, ...friendIds];
-
-    const activeThreshold = new Date(Date.now() - 24 * 60 * 60 * 1000);
-
-    const stories = await Story.findAll({
-      where: {
-        userId: { [Op.in]: userIds },
-        createdAt: { [Op.gte]: activeThreshold },
-      },
-      include: [
-        { association: 'user', attributes: ['id', 'name', 'avatar'] },
-        { association: 'viewers', include: [{ association: 'user', attributes: ['id', 'name', 'avatar'] }] },
-      ],
-      order: [['createdAt', 'ASC']],
-    });
+    const { rows: stories } = await pool.query(sql, [req.user.id]);
 
     // Group stories by user
     const groupedMap = {};
@@ -88,35 +108,39 @@ export const getStories = async (req, res) => {
 export const viewStory = async (req, res) => {
   try {
     const { storyId } = req.params;
-    const story = await Story.findByPk(storyId);
-
-    if (!story) {
+    
+    const { rowCount: storyExists } = await pool.query('SELECT 1 FROM stories WHERE id = $1', [storyId]);
+    if (storyExists === 0) {
       return res.status(404).json({ status: 'error', message: 'Story not found' });
     }
 
     // Check if user already viewed
-    const existingView = await StoryViewer.findOne({
-      where: { storyId, userId: req.user.id },
-    });
+    const { rowCount: existingView } = await pool.query(
+      'SELECT 1 FROM story_viewers WHERE story_id = $1 AND user_id = $2',
+      [storyId, req.user.id]
+    );
 
-    if (!existingView) {
-      await StoryViewer.create({ storyId, userId: req.user.id });
+    let storyData;
+
+    if (existingView === 0) {
+      await pool.query(
+        'INSERT INTO story_viewers (story_id, user_id, created_at, updated_at) VALUES ($1, $2, NOW(), NOW()) ON CONFLICT DO NOTHING',
+        [storyId, req.user.id]
+      );
 
       // Broadcast updated story
-      const populatedStory = await Story.findByPk(storyId, {
-        include: [
-          { association: 'user', attributes: ['id', 'name', 'avatar'] },
-          { association: 'viewers', include: [{ association: 'user', attributes: ['id', 'name', 'avatar'] }] },
-        ],
-      });
+      const populatedStory = await getPopulatedStory(storyId);
+      storyData = populatedStory;
 
       const io = req.app.get('io');
       if (io) {
         io.emit('new_story', populatedStory);
       }
+    } else {
+      storyData = await getPopulatedStory(storyId);
     }
 
-    res.status(200).json({ status: 'success', data: story });
+    res.status(200).json({ status: 'success', data: storyData });
   } catch (error) {
     res.status(500).json({ status: 'error', message: error.message });
   }

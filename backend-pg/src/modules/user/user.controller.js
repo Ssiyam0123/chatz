@@ -1,13 +1,17 @@
-import { User } from '../../models/index.js';
+import pool from '../../config/pgDatabase.js';
 import { uploadToCloudinary } from '../../config/cloudinary.js';
 
 export const getProfile = async (req, res) => {
   try {
     const userId = req.user.id;
 
-    const user = await User.findByPk(userId, {
-      attributes: ['id', 'name', 'email', 'avatar', 'bio', 'coverPhoto', 'publicKey', 'createdAt'],
-    });
+    const { rows } = await pool.query(
+      `SELECT id, name, email, avatar, bio, cover_photo as "coverPhoto", public_key as "publicKey", created_at as "createdAt"
+       FROM users WHERE id = $1`,
+      [userId]
+    );
+
+    const user = rows[0];
 
     if (!user) {
       return res.status(404).json({ message: 'User not found' });
@@ -57,17 +61,37 @@ export const updateProfile = async (req, res) => {
       }
     }
 
-    const [updatedRows] = await User.update(updateData, {
-      where: { id: userId },
+    const setClauses = [];
+    const values = [];
+    let paramIndex = 1;
+
+    Object.keys(updateData).forEach((key) => {
+      // Map JS camelCase to DB snake_case where necessary
+      const dbCol = key === 'coverPhoto' ? 'cover_photo' : key;
+      setClauses.push(`${dbCol} = $${paramIndex}`);
+      values.push(updateData[key]);
+      paramIndex++;
     });
 
-    if (updatedRows === 0) {
+    if (setClauses.length === 0) {
+      return res.status(400).json({ message: 'No valid data provided for update' });
+    }
+
+    values.push(userId); // Last parameter for the WHERE clause
+    const sql = `
+      UPDATE users 
+      SET ${setClauses.join(', ')} 
+      WHERE id = $${paramIndex} 
+      RETURNING id, name, email, avatar, bio, cover_photo as "coverPhoto"
+    `;
+
+    const { rows, rowCount } = await pool.query(sql, values);
+
+    if (rowCount === 0) {
       return res.status(404).json({ message: 'User not found' });
     }
 
-    const updatedUser = await User.findByPk(userId, {
-      attributes: ['id', 'name', 'email', 'avatar', 'bio', 'coverPhoto'],
-    });
+    const updatedUser = rows[0];
 
     res.status(200).json({
       status: 'success',
@@ -77,7 +101,7 @@ export const updateProfile = async (req, res) => {
     });
   } catch (err) {
     console.error('❌ Profile Update Error:', err.message);
-    if (err.name === 'SequelizeUniqueConstraintError') {
+    if (err.code === '23505') { // Postgres unique violation code
       return res.status(400).json({ message: 'Email already exists' });
     }
     res.status(500).json({ status: 'error', message: err.message });
@@ -93,12 +117,12 @@ export const registerPublicKey = async (req, res) => {
       return res.status(400).json({ message: 'Public key is required' });
     }
 
-    const [updatedRows] = await User.update(
-      { publicKey },
-      { where: { id: userId } }
+    const { rowCount } = await pool.query(
+      'UPDATE users SET public_key = $1 WHERE id = $2',
+      [publicKey, userId]
     );
 
-    if (updatedRows === 0) {
+    if (rowCount === 0) {
       return res.status(404).json({ message: 'User not found' });
     }
 
@@ -115,9 +139,12 @@ export const registerPublicKey = async (req, res) => {
 export const getUserById = async (req, res) => {
   try {
     const { userId } = req.params;
-    const user = await User.findByPk(userId, {
-      attributes: ['id', 'name', 'email', 'avatar', 'bio', 'coverPhoto', 'publicKey', 'createdAt'],
-    });
+    const { rows } = await pool.query(
+      `SELECT id, name, email, avatar, bio, cover_photo as "coverPhoto", public_key as "publicKey", created_at as "createdAt"
+       FROM users WHERE id = $1`,
+      [userId]
+    );
+    const user = rows[0];
     if (!user) {
       return res.status(404).json({ message: 'User not found' });
     }

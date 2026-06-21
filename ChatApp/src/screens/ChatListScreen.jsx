@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -11,6 +11,7 @@ import {
   Platform,
   StatusBar,
 } from 'react-native';
+import { useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import useChatStore from '../stores/chatStore';
 import { colors, radii, spacing } from '../theme/blushDusk';
@@ -21,9 +22,11 @@ import Avatar from '../components/ui/Avatar';
 export default function ChatListScreen({ navigation }) {
   const { conversations, fetchConversations, isLoadingUsers } = useChatStore();
 
-  useEffect(() => {
-    fetchConversations();
-  }, []);
+  useFocusEffect(
+    useCallback(() => {
+      fetchConversations();
+    }, [])
+  );
 
   const renderItem = ({ item }) => {
     const name = item.isGroup ? item.name : item.userDetails?.name || 'Unknown User';

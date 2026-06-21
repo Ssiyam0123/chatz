@@ -12,6 +12,8 @@ import {
   Image,
   Alert,
   SafeAreaView,
+  TouchableWithoutFeedback,
+  Keyboard,
 } from 'react-native';
 import useChatStore from '../stores/chatStore';
 import * as ImagePicker from 'expo-image-picker';
@@ -139,42 +141,46 @@ export default function GroupChatScreen({ route }) {
     <SafeAreaView style={styles.safeArea}>
       <KeyboardAvoidingView
         style={styles.container}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         keyboardVerticalOffset={headerHeight}
       >
-        <FlatList
-          ref={flatListRef}
-          data={messages}
-          keyExtractor={(item) => item._id || item.clientId}
-          renderItem={renderMessage}
-          contentContainerStyle={styles.listContent}
-          onContentSizeChange={() => flatListRef.current?.scrollToEnd({ animated: true })}
-        />
+        <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
+          <View style={{ flex: 1 }}>
+            <FlatList
+              ref={flatListRef}
+              data={messages}
+              keyExtractor={(item) => item._id || item.clientId}
+              renderItem={renderMessage}
+              contentContainerStyle={styles.listContent}
+              onContentSizeChange={() => flatListRef.current?.scrollToEnd({ animated: true })}
+            />
 
-        {typingLabel && (
-          <View style={styles.typingBar}>
-            <Text style={styles.typingText}>{typingLabel}</Text>
-          </View>
-        )}
+            {typingLabel && (
+              <View style={styles.typingBar}>
+                <Text style={styles.typingText}>{typingLabel}</Text>
+              </View>
+            )}
 
-        <View style={styles.inputWrap}>
-          <TouchableOpacity onPress={pickImage} style={styles.attachButton} disabled={uploadingImage}>
-            <Ionicons name="image-outline" size={24} color={uploadingImage ? colors.textSoft : colors.secondary} />
-          </TouchableOpacity>
-          <TextInput
-            style={styles.textInput}
-            placeholder="Type a message…"
-            placeholderTextColor={colors.textSoft}
-            value={inputText}
-            onChangeText={onChangeText}
-            multiline
-          />
-          <TouchableOpacity onPress={handleSend} disabled={!inputText.trim()}>
-            <View style={[styles.sendBtn, !inputText.trim() && styles.sendBtnDisabled]}>
-              <Ionicons name="send" size={18} color={colors.white} />
+            <View style={styles.inputWrap}>
+              <TouchableOpacity onPress={pickImage} style={styles.attachButton} disabled={uploadingImage}>
+                <Ionicons name="image-outline" size={24} color={uploadingImage ? colors.textSoft : colors.secondary} />
+              </TouchableOpacity>
+              <TextInput
+                style={styles.textInput}
+                placeholder="Type a message…"
+                placeholderTextColor={colors.textSoft}
+                value={inputText}
+                onChangeText={onChangeText}
+                multiline
+              />
+              <TouchableOpacity onPress={handleSend} disabled={!inputText.trim()}>
+                <View style={[styles.sendBtn, !inputText.trim() && styles.sendBtnDisabled]}>
+                  <Ionicons name="send" size={18} color={colors.white} />
+                </View>
+              </TouchableOpacity>
             </View>
-          </TouchableOpacity>
-        </View>
+          </View>
+        </TouchableWithoutFeedback>
       </KeyboardAvoidingView>
     </SafeAreaView>
   );
