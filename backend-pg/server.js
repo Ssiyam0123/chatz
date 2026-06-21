@@ -180,9 +180,10 @@ pool
       cleanupOldStories();
       setInterval(cleanupOldStories, 60 * 60 * 1000);
 
-      // Keep-alive only when explicitly enabled
-      if (process.env.KEEPALIVE_ENABLED === 'true' && process.env.SERVER_URL) {
-        keepAlive(process.env.SERVER_URL);
+      // Auto keep-alive: use SERVER_URL, Render's external URL, or fallback to chaz-backend.
+      const serverUrl = process.env.SERVER_URL || process.env.RENDER_EXTERNAL_URL || 'https://chaz-backend.onrender.com';
+      if (process.env.KEEPALIVE_ENABLED === 'true' || process.env.RENDER_EXTERNAL_URL || serverUrl.includes('onrender')) {
+        keepAlive(serverUrl);
       }
     });
   })
