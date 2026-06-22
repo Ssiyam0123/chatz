@@ -1090,7 +1090,7 @@ export default function FeedScreen({ navigation }) {
               }}
             />
           )}
-          keyExtractor={(item) => item.id || item._id}
+          keyExtractor={(item, idx) => `post-${item.id || item._id}-${idx}`}
           showsVerticalScrollIndicator={false}
           contentContainerStyle={{ paddingBottom: 120 }}
           refreshing={isRefreshing}
@@ -1131,8 +1131,8 @@ export default function FeedScreen({ navigation }) {
                   )}
 
                   {/* Friends' Stories */}
-                  {stories.map((item) => (
-                    <React.Fragment key={item.user.id || item.user._id}>
+                  {stories.map((item, idx) => (
+                    <React.Fragment key={`story-${item.user?.id || item.user?._id || idx}-${idx}`}>
                       {renderStoryCircle({ item })}
                     </React.Fragment>
                   ))}
@@ -1214,8 +1214,8 @@ export default function FeedScreen({ navigation }) {
                     showsHorizontalScrollIndicator={false}
                     contentContainerStyle={styles.suggestionsScroll}
                   >
-                    {suggestions.map((item) => (
-                      <View key={item.id || item._id} style={styles.suggestionCard}>
+                    {suggestions.map((item, idx) => (
+                      <View key={`suggest-${item.id || item._id || idx}-${idx}`} style={styles.suggestionCard}>
                         <TouchableOpacity
                           style={{ alignItems: 'center', width: '100%' }}
                           onPress={() => navigation.navigate('UserProfile', { userId: item.id || item._id })}
