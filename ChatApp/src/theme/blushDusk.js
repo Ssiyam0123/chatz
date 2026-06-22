@@ -1,22 +1,22 @@
 export const colors = {
-  background: '#F7F1F4',
-  backgroundAlt: '#F1E8ED',
-  surface: '#FFF9FB',
-  surfaceMuted: '#EBDDE4',
-  surfaceStrong: '#DDCAD4',
-  primary: '#B98298',
+  background: '#120E15', // Deep dark violet-black
+  backgroundAlt: '#1A141F', // Slightly lighter dark violet
+  surface: '#201A24', // Card and input dark surface
+  surfaceMuted: '#2D2433', // Muted surface
+  surfaceStrong: '#3E3147', // Strong surface
+  primary: '#B98298', // Pastel pink (retains ChatZ identity)
   primaryPressed: '#A56F86',
-  primarySoft: '#E8CDD8',
-  secondary: '#8798B2',
-  secondarySoft: '#DCE3ED',
-  text: '#382F38',
-  textMuted: '#81747D',
-  textSoft: '#A2979E',
-  border: '#E3D5DC',
-  success: '#789B8A',
-  danger: '#B96F7E',
-  white: '#FFFFFF',
-  overlay: 'rgba(56, 47, 56, 0.42)',
+  primarySoft: '#3E2A34', // Deep crimson-violet for soft active states
+  secondary: '#8798B2', // Slate blue
+  secondarySoft: '#232A35', // Deep slate blue background
+  text: '#F5EFF2', // Soft white text
+  textMuted: '#C5BAC0', // Muted soft text
+  textSoft: '#A59BA0', // Soft placeholder text
+  border: '#2E2533', // Dark borders
+  success: '#8CB09E',
+  danger: '#CC8A97',
+  white: '#FFFFFF', // Keep pure white for light text/icons on dark surfaces
+  overlay: 'rgba(0, 0, 0, 0.6)',
 };
 
 export const spacing = {
