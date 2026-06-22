@@ -1,9 +1,12 @@
 import React from 'react';
 import { SafeAreaView, View, StyleSheet, Platform, StatusBar } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { colors, spacing } from '../../theme/blushDusk';
+import { spacing } from '../../theme/blushDusk';
+import { useTheme } from '../../theme/ThemeContext';
 
 export default function Screen({ children, style, noHorizontalPadding, safeArea = true }) {
+  const { colors, isDark, toggleTheme } = useTheme();
+  const styles = getStyles(colors);
   const insets = useSafeAreaInsets();
 
   if (safeArea) {
@@ -25,7 +28,7 @@ export default function Screen({ children, style, noHorizontalPadding, safeArea 
   );
 }
 
-const styles = StyleSheet.create({
+const getStyles = (colors) => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.background,

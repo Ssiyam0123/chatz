@@ -3,6 +3,8 @@ import { TouchableOpacity, Text, StyleSheet, ActivityIndicator } from 'react-nat
 import { colors, spacing, radii } from '../../theme/blushDusk';
 
 export default function PrimaryButton({ title, onPress, loading, disabled, style, textStyle, outline, secondary }) {
+  const { colors, isDark, toggleTheme } = useTheme();
+  const styles = getStyles(colors);
   const bgColor = outline ? 'transparent'
     : secondary ? colors.secondary
     : colors.primary;
@@ -31,7 +33,7 @@ export default function PrimaryButton({ title, onPress, loading, disabled, style
   );
 }
 
-const styles = StyleSheet.create({
+const getStyles = (colors) => StyleSheet.create({
   button: {
     minHeight: 50,
     borderRadius: radii.small,

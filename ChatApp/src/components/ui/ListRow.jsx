@@ -57,7 +57,7 @@ const ListRow = React.memo(({
 });
 
 
-const styles = StyleSheet.create({
+const getStyles = (colors) => StyleSheet.create({
   row: {
     flexDirection: 'row',
     alignItems: 'center',

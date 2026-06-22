@@ -11,12 +11,17 @@ import {
 } from 'react-native';
 import { getMyGroups } from '../api/api';
 import { Ionicons } from '@expo/vector-icons';
-import { colors, radii, spacing } from '../theme/blushDusk';
+import { radii, spacing } from '../theme/blushDusk';
+import { useTheme } from '../theme/ThemeContext';
 import Avatar from '../components/ui/Avatar';
 import ListRow from '../components/ui/ListRow';
 import EmptyState from '../components/ui/EmptyState';
 
 export default function GroupListScreen({ navigation }) {
+  const { colors, isDark, toggleTheme } = useTheme();
+  const styles = getStyles(colors);
+  const { colors, isDark, toggleTheme } = useTheme();
+  const styles = getStyles(colors);
   const [groups, setGroups] = useState([]);
   const [loading, setLoading] = useState(true);
 
@@ -83,7 +88,7 @@ export default function GroupListScreen({ navigation }) {
   );
 }
 
-const styles = StyleSheet.create({
+const getStyles = (colors) => StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   fab: {

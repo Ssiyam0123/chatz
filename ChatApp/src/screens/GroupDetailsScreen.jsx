@@ -16,13 +16,18 @@ import {
 import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
-import { colors, spacing, radii, typography, shadows } from '../theme/blushDusk';
+import { spacing, radii, typography, shadows } from '../theme/blushDusk';
+import { useTheme } from '../theme/ThemeContext';
 import Avatar from '../components/ui/Avatar';
 import ReportModal from '../components/ui/ReportModal';
 import { getGroupById, updateGroup, addGroupMembers, removeGroupMembers, leaveGroup, getFriends, uploadImage } from '../api/api';
 import useChatStore from '../stores/chatStore';
 
 export default function GroupDetailsScreen({ route, navigation }) {
+  const { colors, isDark, toggleTheme } = useTheme();
+  const styles = getStyles(colors);
+  const { colors, isDark, toggleTheme } = useTheme();
+  const styles = getStyles(colors);
   const { groupId } = route.params;
   const [group, setGroup] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -390,7 +395,7 @@ export default function GroupDetailsScreen({ route, navigation }) {
   );
 }
 
-const styles = StyleSheet.create({
+const getStyles = (colors) => StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: colors.background },
   scrollContainer: { padding: spacing.md },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: colors.background },

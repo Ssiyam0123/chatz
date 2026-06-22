@@ -14,12 +14,17 @@ import {
 import { useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import useChatStore from '../stores/chatStore';
-import { colors, radii, spacing } from '../theme/blushDusk';
+import { radii, spacing } from '../theme/blushDusk';
+import { useTheme } from '../theme/ThemeContext';
 import EmptyState from '../components/ui/EmptyState';
 import ListRow from '../components/ui/ListRow';
 import Avatar from '../components/ui/Avatar';
 
 export default function ChatListScreen({ navigation }) {
+  const { colors, isDark, toggleTheme } = useTheme();
+  const styles = getStyles(colors);
+  const { colors, isDark, toggleTheme } = useTheme();
+  const styles = getStyles(colors);
   const { conversations, fetchConversations, isLoadingUsers } = useChatStore();
 
   const lastFetchedRef = useRef(0);
@@ -90,6 +95,13 @@ export default function ChatListScreen({ navigation }) {
         <View style={styles.headerActions}>
           <TouchableOpacity
             style={styles.headerBtn}
+            onPress={toggleTheme}
+            activeOpacity={0.7}
+          >
+            <Ionicons name={isDark ? "sunny-outline" : "moon-outline"} size={24} color={colors.primary} />
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.headerBtn}
             onPress={() => navigation.navigate('GroupList')}
             activeOpacity={0.7}
           >
@@ -127,7 +139,7 @@ export default function ChatListScreen({ navigation }) {
   );
 }
 
-const styles = StyleSheet.create({
+const getStyles = (colors) => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.background,

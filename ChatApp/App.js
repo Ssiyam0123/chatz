@@ -6,6 +6,8 @@ import { useAuthStore } from './src/stores/authStore';
 import useChatStore from './src/stores/chatStore';
 import { ActivityIndicator, View } from 'react-native';
 
+import { ThemeProvider } from './src/theme/ThemeContext';
+
 export default function App() {
   const { isHydrated, token, user } = useAuthStore();
   const initChat = useChatStore(state => state.init);
@@ -35,8 +37,10 @@ export default function App() {
   }
 
   return (
-    <NavigationContainer>
-      <AppNavigator />
-    </NavigationContainer>
+    <ThemeProvider>
+      <NavigationContainer>
+        <AppNavigator />
+      </NavigationContainer>
+    </ThemeProvider>
   );
 }

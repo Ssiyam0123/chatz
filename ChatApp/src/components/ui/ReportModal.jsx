@@ -13,7 +13,8 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { createReport } from '../../api/api';
-import { colors, radii, spacing } from '../../theme/blushDusk';
+import { radii, spacing } from '../../theme/blushDusk';
+import { useTheme } from '../../theme/ThemeContext';
 
 const REPORT_REASONS = [
   { key: 'spam', label: 'Spam' },
@@ -27,6 +28,8 @@ const REPORT_REASONS = [
 ];
 
 export default function ReportModal({ visible, onClose, targetType, targetId, targetName }) {
+  const { colors, isDark, toggleTheme } = useTheme();
+  const styles = getStyles(colors);
   const [selectedReason, setSelectedReason] = useState(null);
   const [details, setDetails] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -200,7 +203,7 @@ export default function ReportModal({ visible, onClose, targetType, targetId, ta
   );
 }
 
-const styles = StyleSheet.create({
+const getStyles = (colors) => StyleSheet.create({
   overlay: {
     flex: 1,
     justifyContent: 'flex-end',

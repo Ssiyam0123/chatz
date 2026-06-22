@@ -18,11 +18,16 @@ import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
 import useChatStore from '../stores/chatStore';
 import { useAuthStore } from '../stores/authStore';
-import { colors, radii, spacing } from '../theme/blushDusk';
+import { radii, spacing } from '../theme/blushDusk';
+import { useTheme } from '../theme/ThemeContext';
 
 const PeopleItemSeparator = () => <View style={styles.separatorLine} />;
 
 export default function PeopleScreen({ navigation }) {
+  const { colors, isDark, toggleTheme } = useTheme();
+  const styles = getStyles(colors);
+  const { colors, isDark, toggleTheme } = useTheme();
+  const styles = getStyles(colors);
   const { 
     users, 
     isLoadingUsers, 
@@ -374,7 +379,7 @@ export default function PeopleScreen({ navigation }) {
   );
 }
 
-const styles = StyleSheet.create({
+const getStyles = (colors) => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.background,

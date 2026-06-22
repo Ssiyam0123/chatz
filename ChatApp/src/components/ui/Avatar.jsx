@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { Image } from 'expo-image';
-import { colors } from '../../theme/blushDusk';
+import { useTheme } from '../../theme/ThemeContext';
 
 const SIZES = {
   sm: 32,
@@ -39,7 +39,7 @@ const Avatar = React.memo(({ uri, name, size = 'md', status, style }) => {
   );
 });
 
-const styles = StyleSheet.create({
+const getStyles = (colors) => StyleSheet.create({
   wrapper: {
     position: 'relative',
   },

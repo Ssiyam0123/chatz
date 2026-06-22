@@ -1,9 +1,12 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Platform } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { colors, spacing, radii, typography } from '../../theme/blushDusk';
+import { spacing, radii, typography } from '../../theme/blushDusk';
+import { useTheme } from '../../theme/ThemeContext';
 
 export default function SoftHeader({ title, onBack, trailing, style }) {
+  const { colors, isDark, toggleTheme } = useTheme();
+  const styles = getStyles(colors);
   return (
     <View style={[styles.container, style]}>
       <View style={styles.left}>
@@ -21,7 +24,7 @@ export default function SoftHeader({ title, onBack, trailing, style }) {
   );
 }
 
-const styles = StyleSheet.create({
+const getStyles = (colors) => StyleSheet.create({
   container: {
     flexDirection: 'row',
     alignItems: 'center',

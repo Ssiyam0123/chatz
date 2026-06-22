@@ -24,7 +24,8 @@ import { useAuthStore } from '../stores/authStore';
 import useChatStore from '../stores/chatStore';
 import { useFocusEffect } from '@react-navigation/native';
 import { api } from '../api/api';
-import { colors, radii, spacing } from '../theme/blushDusk';
+import { radii, spacing } from '../theme/blushDusk';
+import { useTheme } from '../theme/ThemeContext';
 import Avatar from '../components/ui/Avatar';
 import ExpandableText from '../components/ui/ExpandableText';
 import PrimaryButton from '../components/ui/PrimaryButton';
@@ -43,6 +44,10 @@ const REACTION_TYPES = [
 ];
 
 export default function ProfileScreen({ route, navigation }) {
+  const { colors, isDark, toggleTheme } = useTheme();
+  const styles = getStyles(colors);
+  const { colors, isDark, toggleTheme } = useTheme();
+  const styles = getStyles(colors);
   const { user, updateUser, logout } = useAuthStore();
   const {
     userPosts,
@@ -1060,7 +1065,7 @@ export default function ProfileScreen({ route, navigation }) {
   );
 }
 
-const styles = StyleSheet.create({
+const getStyles = (colors) => StyleSheet.create({
   screen: {
     flex: 1,
     backgroundColor: colors.background,

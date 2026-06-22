@@ -3,10 +3,15 @@ import { View, Text, TextInput, FlatList, TouchableOpacity, StyleSheet, Alert, A
 import { getAllUsers, createGroup, uploadImage, getFriends } from '../api/api';
 import * as ImagePicker from 'expo-image-picker';
 import { Ionicons } from '@expo/vector-icons';
-import { colors, radii, spacing } from '../theme/blushDusk';
+import { radii, spacing } from '../theme/blushDusk';
+import { useTheme } from '../theme/ThemeContext';
 import useChatStore from '../stores/chatStore';
 
 export default function CreateGroupScreen({ navigation }) {
+  const { colors, isDark, toggleTheme } = useTheme();
+  const styles = getStyles(colors);
+  const { colors, isDark, toggleTheme } = useTheme();
+  const styles = getStyles(colors);
   const [groupName, setGroupName] = useState('');
   const [users, setUsers] = useState([]);
   const [selectedUsers, setSelectedUsers] = useState({});
@@ -287,7 +292,7 @@ export default function CreateGroupScreen({ navigation }) {
   );
 }
 
-const styles = StyleSheet.create({
+const getStyles = (colors) => StyleSheet.create({
   safeArea: {
     flex: 1,
     flexBasis: 0,

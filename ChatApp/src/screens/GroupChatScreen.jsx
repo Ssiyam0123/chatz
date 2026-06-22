@@ -19,7 +19,8 @@ import useChatStore from '../stores/chatStore';
 import * as ImagePicker from 'expo-image-picker';
 import { Ionicons } from '@expo/vector-icons';
 import { useHeaderHeight } from '@react-navigation/elements';
-import { colors, radii, spacing } from '../theme/blushDusk';
+import { radii, spacing } from '../theme/blushDusk';
+import { useTheme } from '../theme/ThemeContext';
 import Avatar from '../components/ui/Avatar';
 import ReportModal from '../components/ui/ReportModal';
 
@@ -81,6 +82,10 @@ const GroupMessageItem = React.memo(({ item, currentUserId, onReport }) => {
 
 
 export default function GroupChatScreen({ route, navigation }) {
+  const { colors, isDark, toggleTheme } = useTheme();
+  const styles = getStyles(colors);
+  const { colors, isDark, toggleTheme } = useTheme();
+  const styles = getStyles(colors);
   const { groupId, groupName } = route.params;
   const [inputText, setInputText] = React.useState('');
   const [reportModalVisible, setReportModalVisible] = React.useState(false);
@@ -246,7 +251,7 @@ export default function GroupChatScreen({ route, navigation }) {
   );
 }
 
-const styles = StyleSheet.create({
+const getStyles = (colors) => StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: colors.background },
   container: { flex: 1, backgroundColor: colors.background },
   listContent: { paddingHorizontal: spacing.md, paddingTop: spacing.sm, paddingBottom: spacing.sm, flexGrow: 1 },

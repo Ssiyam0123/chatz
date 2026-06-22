@@ -22,7 +22,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { useHeaderHeight } from '@react-navigation/elements';
 import { useNavigation } from '@react-navigation/native';
 import useChatStore from '../stores/chatStore';
-import { colors, radii, spacing } from '../theme/blushDusk';
+import { radii, spacing } from '../theme/blushDusk';
+import { useTheme } from '../theme/ThemeContext';
 import ReportModal from '../components/ui/ReportModal';
 
 const EMPTY_ARRAY = [];
@@ -79,6 +80,10 @@ const MessageItem = React.memo(({ item, currentUserId, onReport }) => {
 });
 
 export default function ChatScreen({ route }) {
+  const { colors, isDark, toggleTheme } = useTheme();
+  const styles = getStyles(colors);
+  const { colors, isDark, toggleTheme } = useTheme();
+  const styles = getStyles(colors);
   const { userId: partnerId, userName } = route.params;
   const [inputText, setInputText] = useState('');
   const [modalVisible, setModalVisible] = useState(false);
@@ -324,7 +329,7 @@ export default function ChatScreen({ route }) {
   );
 }
 
-const styles = StyleSheet.create({
+const getStyles = (colors) => StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: colors.background },
   container: { flex: 1 },
   inner: { flex: 1, backgroundColor: colors.background },

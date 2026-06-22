@@ -5,6 +5,8 @@ import { colors, spacing, radii } from '../../theme/blushDusk';
 import PrimaryButton from './PrimaryButton';
 
 export default function EmptyState({ icon, title, message, actionLabel, onAction }) {
+  const { colors, isDark, toggleTheme } = useTheme();
+  const styles = getStyles(colors);
   return (
     <View style={styles.container}>
       <View style={styles.iconTile}>
@@ -19,7 +21,7 @@ export default function EmptyState({ icon, title, message, actionLabel, onAction
   );
 }
 
-const styles = StyleSheet.create({
+const getStyles = (colors) => StyleSheet.create({
   container: {
     flex: 1,
     alignItems: 'center',

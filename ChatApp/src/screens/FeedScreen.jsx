@@ -22,7 +22,8 @@ import useChatStore from '../stores/chatStore';
 import { useAuthStore } from '../stores/authStore';
 import { useFocusEffect } from '@react-navigation/native';
 import { uploadImage } from '../api/api';
-import { colors, radii, spacing } from '../theme/blushDusk';
+import { radii, spacing } from '../theme/blushDusk';
+import { useTheme } from '../theme/ThemeContext';
 import Avatar from '../components/ui/Avatar';
 import ExpandableText from '../components/ui/ExpandableText';
 import ReportModal from '../components/ui/ReportModal';
@@ -419,6 +420,10 @@ const PostCard = React.memo(({ item, currentUserId, navigation, handleStartEditP
 
 // ----------------------------------------------------
 export default function FeedScreen({ navigation }) {
+  const { colors, isDark, toggleTheme } = useTheme();
+  const styles = getStyles(colors);
+  const { colors, isDark, toggleTheme } = useTheme();
+  const styles = getStyles(colors);
   const { user } = useAuthStore();
   const posts = useChatStore(state => state.posts);
   const stories = useChatStore(state => state.stories);
@@ -1066,6 +1071,16 @@ export default function FeedScreen({ navigation }) {
 
   return (
     <SafeAreaView style={styles.container}>
+      <View style={styles.header}>
+        <Text style={styles.headerTitle}>ChatZ</Text>
+        <TouchableOpacity
+          style={styles.headerBtn}
+          onPress={toggleTheme}
+          activeOpacity={0.7}
+        >
+          <Ionicons name={isDark ? "sunny-outline" : "moon-outline"} size={22} color={colors.primary} />
+        </TouchableOpacity>
+      </View>
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         style={{ flex: 1 }}
@@ -1616,7 +1631,7 @@ export default function FeedScreen({ navigation }) {
   );
 }
 
-const styles = StyleSheet.create({
+const getStyles = (colors) => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.background,
@@ -2381,5 +2396,23 @@ const styles = StyleSheet.create({
     color: colors.white,
     fontWeight: '600',
     fontSize: 14,
+  },
+  header: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.md,
+    backgroundColor: colors.surface,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+  },
+  headerTitle: {
+    fontSize: 22,
+    fontWeight: '700',
+    color: colors.primary,
+  },
+  headerBtn: {
+    padding: spacing.xs,
   },
 });
