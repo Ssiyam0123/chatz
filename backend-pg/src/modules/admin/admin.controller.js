@@ -382,7 +382,7 @@ export const getModerationSLA = asyncHandler(async (req, res) => {
       COUNT(*)::int as "totalResolved",
       ROUND(AVG(EXTRACT(EPOCH FROM (updated_at - created_at)) / 3600)::numeric, 1) as "avgHoursToResolve",
       ROUND(
-        PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY EXTRACT(EPOCH FROM (updated_at - created_at))) / 3600
+        (PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY EXTRACT(EPOCH FROM (updated_at - created_at))) / 3600)::numeric
       , 1) as "medianHoursToResolve",
       COUNT(*) FILTER (WHERE EXTRACT(EPOCH FROM (updated_at - created_at)) < 3600)::int as "resolvedWithin1Hour",
       COUNT(*) FILTER (WHERE EXTRACT(EPOCH FROM (updated_at - created_at)) < 86400)::int as "resolvedWithin24Hours"

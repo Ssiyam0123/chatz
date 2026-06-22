@@ -24,10 +24,12 @@ router.post('/events', trackEvent);
 
 // ─── Admin & Analyst ──────────────────────────────────────────────────────────
 router.get('/dashboard', restrictTo('moderator', 'analyst', 'admin', 'super_admin'), getDashboardStats);
+router.get('/dashboard/stats', restrictTo('moderator', 'analyst', 'admin', 'super_admin'), getDashboardStats);
 router.get('/users/stats', restrictTo('analyst', 'admin', 'super_admin'), getUserStats);
 router.get('/analytics', restrictTo('analyst', 'admin', 'super_admin'), getAnalytics);
 router.get('/analytics/geography', restrictTo('analyst', 'admin', 'super_admin'), getGeographyAnalytics);
 router.get('/analytics/devices', restrictTo('analyst', 'admin', 'super_admin'), getDeviceAnalytics);
+router.get('/analytics/device', restrictTo('analyst', 'admin', 'super_admin'), getDeviceAnalytics);
 router.get('/analytics/retention', restrictTo('analyst', 'admin', 'super_admin'), getRetentionAnalytics);
 router.get('/moderation/sla', restrictTo('moderator', 'analyst', 'admin', 'super_admin'), getModerationSLA);
 
