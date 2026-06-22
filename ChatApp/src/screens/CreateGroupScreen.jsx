@@ -9,7 +9,7 @@ import useChatStore from '../stores/chatStore';
 
 export default function CreateGroupScreen({ navigation }) {
     const { colors, isDark, toggleTheme } = useTheme();
-  const styles = getStyles(colors);
+  styles = getStyles(colors);
 const [groupName, setGroupName] = useState('');
   const [users, setUsers] = useState([]);
   const [selectedUsers, setSelectedUsers] = useState({});
@@ -290,6 +290,7 @@ const [groupName, setGroupName] = useState('');
   );
 }
 
+let styles;
 const getStyles = (colors) => StyleSheet.create({
   safeArea: {
     flex: 1,

@@ -4,7 +4,7 @@ import { colors, spacing, radii } from '../../theme/blushDusk';
 
 export default function SoftInput({ style, inputStyle, icon, ...props }) {
   const { colors, isDark, toggleTheme } = useTheme();
-  const styles = getStyles(colors);
+  styles = getStyles(colors);
   return (
     <View style={[styles.container, style]}>
       <TextInput
@@ -16,6 +16,7 @@ export default function SoftInput({ style, inputStyle, icon, ...props }) {
   );
 }
 
+let styles;
 const getStyles = (colors) => StyleSheet.create({
   container: {
     backgroundColor: colors.surface,

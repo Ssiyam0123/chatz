@@ -6,7 +6,7 @@ import { useTheme } from '../../theme/ThemeContext';
 
 export default function Screen({ children, style, noHorizontalPadding, safeArea = true }) {
   const { colors, isDark, toggleTheme } = useTheme();
-  const styles = getStyles(colors);
+  styles = getStyles(colors);
   const insets = useSafeAreaInsets();
 
   if (safeArea) {
@@ -28,6 +28,7 @@ export default function Screen({ children, style, noHorizontalPadding, safeArea 
   );
 }
 
+let styles;
 const getStyles = (colors) => StyleSheet.create({
   container: {
     flex: 1,

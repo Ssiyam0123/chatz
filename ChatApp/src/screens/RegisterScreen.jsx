@@ -18,7 +18,7 @@ import { useTheme } from '../theme/ThemeContext';
 
 export default function RegisterScreen({ navigation }) {
     const { colors, isDark, toggleTheme } = useTheme();
-  const styles = getStyles(colors);
+  styles = getStyles(colors);
 const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -125,6 +125,7 @@ const [name, setName] = useState("");
   );
 }
 
+let styles;
 const getStyles = (colors) => StyleSheet.create({
   inner: { flexGrow: 1, justifyContent: "center", padding: spacing.xxl },
   brandRow: {

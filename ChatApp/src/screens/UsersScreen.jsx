@@ -20,7 +20,7 @@ import EmptyState from '../components/ui/EmptyState';
 
 export default function UsersScreen({ navigation }) {
     const { colors, isDark, toggleTheme } = useTheme();
-  const styles = getStyles(colors);
+  styles = getStyles(colors);
 const { users, isLoadingUsers, fetchUsers } = useChatStore();
   const currentUserId = useAuthStore((state) => state.user?.id || state.user?._id);
   const logout = useAuthStore((state) => state.logout);
@@ -92,6 +92,7 @@ const { users, isLoadingUsers, fetchUsers } = useChatStore();
   );
 }
 
+let styles;
 const getStyles = (colors) => StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center' },

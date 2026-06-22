@@ -19,7 +19,7 @@ import EmptyState from '../components/ui/EmptyState';
 
 export default function GroupListScreen({ navigation }) {
     const { colors, isDark, toggleTheme } = useTheme();
-  const styles = getStyles(colors);
+  styles = getStyles(colors);
 const [groups, setGroups] = useState([]);
   const [loading, setLoading] = useState(true);
 
@@ -86,6 +86,7 @@ const [groups, setGroups] = useState([]);
   );
 }
 
+let styles;
 const getStyles = (colors) => StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center' },

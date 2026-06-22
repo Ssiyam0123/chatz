@@ -25,7 +25,7 @@ const PeopleItemSeparator = () => <View style={styles.separatorLine} />;
 
 export default function PeopleScreen({ navigation }) {
     const { colors, isDark, toggleTheme } = useTheme();
-  const styles = getStyles(colors);
+  styles = getStyles(colors);
 const { 
     users, 
     isLoadingUsers, 
@@ -377,6 +377,7 @@ const {
   );
 }
 
+let styles;
 const getStyles = (colors) => StyleSheet.create({
   container: {
     flex: 1,

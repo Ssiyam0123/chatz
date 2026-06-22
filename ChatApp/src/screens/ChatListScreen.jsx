@@ -22,7 +22,7 @@ import Avatar from '../components/ui/Avatar';
 
 export default function ChatListScreen({ navigation }) {
     const { colors, isDark, toggleTheme } = useTheme();
-  const styles = getStyles(colors);
+  styles = getStyles(colors);
 const { conversations, fetchConversations, isLoadingUsers } = useChatStore();
 
   const lastFetchedRef = useRef(0);
@@ -137,6 +137,7 @@ const { conversations, fetchConversations, isLoadingUsers } = useChatStore();
   );
 }
 
+let styles;
 const getStyles = (colors) => StyleSheet.create({
   container: {
     flex: 1,

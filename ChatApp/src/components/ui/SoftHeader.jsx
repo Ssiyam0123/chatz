@@ -6,7 +6,7 @@ import { useTheme } from '../../theme/ThemeContext';
 
 export default function SoftHeader({ title, onBack, trailing, style }) {
   const { colors, isDark, toggleTheme } = useTheme();
-  const styles = getStyles(colors);
+  styles = getStyles(colors);
   return (
     <View style={[styles.container, style]}>
       <View style={styles.left}>
@@ -24,6 +24,7 @@ export default function SoftHeader({ title, onBack, trailing, style }) {
   );
 }
 
+let styles;
 const getStyles = (colors) => StyleSheet.create({
   container: {
     flexDirection: 'row',

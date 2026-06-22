@@ -7,7 +7,7 @@ import { useTheme } from '../theme/ThemeContext';
 
 export default function LoginScreen({ navigation }) {
     const { colors, isDark, toggleTheme } = useTheme();
-  const styles = getStyles(colors);
+  styles = getStyles(colors);
 const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPass, setShowPass] = useState(false);
@@ -84,6 +84,7 @@ const [email, setEmail] = useState('');
   );
 }
 
+let styles;
 const getStyles = (colors) => StyleSheet.create({
   inner: { flexGrow: 1, justifyContent: 'center', padding: spacing.xxl },
   brandRow: {

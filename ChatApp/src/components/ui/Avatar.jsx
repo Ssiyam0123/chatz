@@ -39,6 +39,7 @@ const Avatar = React.memo(({ uri, name, size = 'md', status, style }) => {
   );
 });
 
+let styles;
 const getStyles = (colors) => StyleSheet.create({
   wrapper: {
     position: 'relative',

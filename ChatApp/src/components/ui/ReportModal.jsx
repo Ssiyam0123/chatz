@@ -29,7 +29,7 @@ const REPORT_REASONS = [
 
 export default function ReportModal({ visible, onClose, targetType, targetId, targetName }) {
   const { colors, isDark, toggleTheme } = useTheme();
-  const styles = getStyles(colors);
+  styles = getStyles(colors);
   const [selectedReason, setSelectedReason] = useState(null);
   const [details, setDetails] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -203,6 +203,7 @@ export default function ReportModal({ visible, onClose, targetType, targetId, ta
   );
 }
 
+let styles;
 const getStyles = (colors) => StyleSheet.create({
   overlay: {
     flex: 1,

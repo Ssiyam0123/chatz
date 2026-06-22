@@ -4,7 +4,7 @@ import { colors, spacing, radii } from '../../theme/blushDusk';
 
 export default function PrimaryButton({ title, onPress, loading, disabled, style, textStyle, outline, secondary }) {
   const { colors, isDark, toggleTheme } = useTheme();
-  const styles = getStyles(colors);
+  styles = getStyles(colors);
   const bgColor = outline ? 'transparent'
     : secondary ? colors.secondary
     : colors.primary;
@@ -33,6 +33,7 @@ export default function PrimaryButton({ title, onPress, loading, disabled, style
   );
 }
 
+let styles;
 const getStyles = (colors) => StyleSheet.create({
   button: {
     minHeight: 50,
