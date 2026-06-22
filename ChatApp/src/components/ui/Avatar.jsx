@@ -12,6 +12,8 @@ const SIZES = {
 };
 
 const Avatar = React.memo(({ uri, name, size = 'md', status, style }) => {
+  const { colors } = useTheme();
+  styles = getStyles(colors);
   const dimension = SIZES[size] || SIZES.md;
   const borderRadius = dimension / 2;
 
@@ -40,6 +42,7 @@ const Avatar = React.memo(({ uri, name, size = 'md', status, style }) => {
 });
 
 let styles;
+let colors;
 const getStyles = (colors) => StyleSheet.create({
   wrapper: {
     position: 'relative',

@@ -21,7 +21,8 @@ import ListRow from '../components/ui/ListRow';
 import Avatar from '../components/ui/Avatar';
 
 export default function ChatListScreen({ navigation }) {
-    const { colors, isDark, toggleTheme } = useTheme();
+    const { colors: themeColors, isDark, toggleTheme } = useTheme();
+  colors = themeColors;
   styles = getStyles(colors);
 const { conversations, fetchConversations, isLoadingUsers } = useChatStore();
 
@@ -138,6 +139,7 @@ const { conversations, fetchConversations, isLoadingUsers } = useChatStore();
 }
 
 let styles;
+let colors;
 const getStyles = (colors) => StyleSheet.create({
   container: {
     flex: 1,

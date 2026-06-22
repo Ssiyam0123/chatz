@@ -7,11 +7,12 @@ import ChatListScreen from '../screens/ChatListScreen';
 import PeopleScreen from '../screens/PeopleScreen';
 import ProfileScreen from '../screens/ProfileScreen';
 import useChatStore from '../stores/chatStore';
-import { colors } from '../theme/blushDusk';
+import { useTheme } from '../theme/ThemeContext';
 
 const Tab = createBottomTabNavigator();
 
 export default function MainTabNavigator() {
+  const { colors } = useTheme();
   const conversations = useChatStore((state) => state.conversations);
   const totalUnreadCount = conversations.reduce((acc, conv) => acc + (conv.unreadCount || 0), 0);
 

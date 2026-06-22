@@ -24,7 +24,8 @@ import { useTheme } from '../theme/ThemeContext';
 const PeopleItemSeparator = () => <View style={styles.separatorLine} />;
 
 export default function PeopleScreen({ navigation }) {
-    const { colors, isDark, toggleTheme } = useTheme();
+    const { colors: themeColors, isDark, toggleTheme } = useTheme();
+  colors = themeColors;
   styles = getStyles(colors);
 const { 
     users, 
@@ -378,6 +379,7 @@ const {
 }
 
 let styles;
+let colors;
 const getStyles = (colors) => StyleSheet.create({
   container: {
     flex: 1,

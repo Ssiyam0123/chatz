@@ -1,9 +1,11 @@
 import React from 'react';
 import { TouchableOpacity, Text, StyleSheet, ActivityIndicator } from 'react-native';
-import { colors, spacing, radii } from '../../theme/blushDusk';
+import { spacing, radii } from '../../theme/blushDusk';
+import { useTheme } from '../../theme/ThemeContext';
 
 export default function PrimaryButton({ title, onPress, loading, disabled, style, textStyle, outline, secondary }) {
-  const { colors, isDark, toggleTheme } = useTheme();
+  const { colors: themeColors, isDark, toggleTheme } = useTheme();
+  colors = themeColors;
   styles = getStyles(colors);
   const bgColor = outline ? 'transparent'
     : secondary ? colors.secondary
@@ -34,6 +36,7 @@ export default function PrimaryButton({ title, onPress, loading, disabled, style
 }
 
 let styles;
+let colors;
 const getStyles = (colors) => StyleSheet.create({
   button: {
     minHeight: 50,

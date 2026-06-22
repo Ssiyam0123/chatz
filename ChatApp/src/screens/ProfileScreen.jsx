@@ -44,7 +44,8 @@ const REACTION_TYPES = [
 ];
 
 export default function ProfileScreen({ route, navigation }) {
-    const { colors, isDark, toggleTheme } = useTheme();
+    const { colors: themeColors, isDark, toggleTheme } = useTheme();
+  colors = themeColors;
   styles = getStyles(colors);
 const { user, updateUser, logout } = useAuthStore();
   const {
@@ -1064,6 +1065,7 @@ const { user, updateUser, logout } = useAuthStore();
 }
 
 let styles;
+let colors;
 const getStyles = (colors) => StyleSheet.create({
   screen: {
     flex: 1,

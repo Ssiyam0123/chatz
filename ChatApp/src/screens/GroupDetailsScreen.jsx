@@ -24,7 +24,8 @@ import { getGroupById, updateGroup, addGroupMembers, removeGroupMembers, leaveGr
 import useChatStore from '../stores/chatStore';
 
 export default function GroupDetailsScreen({ route, navigation }) {
-    const { colors, isDark, toggleTheme } = useTheme();
+    const { colors: themeColors, isDark, toggleTheme } = useTheme();
+  colors = themeColors;
   styles = getStyles(colors);
 const { groupId } = route.params;
   const [group, setGroup] = useState(null);
@@ -394,6 +395,7 @@ const { groupId } = route.params;
 }
 
 let styles;
+let colors;
 const getStyles = (colors) => StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: colors.background },
   scrollContainer: { padding: spacing.md },

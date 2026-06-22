@@ -19,7 +19,8 @@ import ListRow from '../components/ui/ListRow';
 import EmptyState from '../components/ui/EmptyState';
 
 export default function UsersScreen({ navigation }) {
-    const { colors, isDark, toggleTheme } = useTheme();
+    const { colors: themeColors, isDark, toggleTheme } = useTheme();
+  colors = themeColors;
   styles = getStyles(colors);
 const { users, isLoadingUsers, fetchUsers } = useChatStore();
   const currentUserId = useAuthStore((state) => state.user?.id || state.user?._id);
@@ -93,6 +94,7 @@ const { users, isLoadingUsers, fetchUsers } = useChatStore();
 }
 
 let styles;
+let colors;
 const getStyles = (colors) => StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center' },

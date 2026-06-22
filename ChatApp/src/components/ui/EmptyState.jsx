@@ -1,11 +1,13 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { colors, spacing, radii } from '../../theme/blushDusk';
+import { spacing, radii } from '../../theme/blushDusk';
+import { useTheme } from '../../theme/ThemeContext';
 import PrimaryButton from './PrimaryButton';
 
 export default function EmptyState({ icon, title, message, actionLabel, onAction }) {
-  const { colors, isDark, toggleTheme } = useTheme();
+  const { colors: themeColors, isDark, toggleTheme } = useTheme();
+  colors = themeColors;
   styles = getStyles(colors);
   return (
     <View style={styles.container}>
@@ -22,6 +24,7 @@ export default function EmptyState({ icon, title, message, actionLabel, onAction
 }
 
 let styles;
+let colors;
 const getStyles = (colors) => StyleSheet.create({
   container: {
     flex: 1,

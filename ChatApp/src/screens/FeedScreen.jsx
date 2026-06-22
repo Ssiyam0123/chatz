@@ -420,7 +420,8 @@ const PostCard = React.memo(({ item, currentUserId, navigation, handleStartEditP
 
 // ----------------------------------------------------
 export default function FeedScreen({ navigation }) {
-    const { colors, isDark, toggleTheme } = useTheme();
+    const { colors: themeColors, isDark, toggleTheme } = useTheme();
+  colors = themeColors;
   styles = getStyles(colors);
 const { user } = useAuthStore();
   const posts = useChatStore(state => state.posts);
@@ -1630,6 +1631,7 @@ const { user } = useAuthStore();
 }
 
 let styles;
+let colors;
 const getStyles = (colors) => StyleSheet.create({
   container: {
     flex: 1,

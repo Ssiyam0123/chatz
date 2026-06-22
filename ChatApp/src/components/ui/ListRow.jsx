@@ -1,7 +1,8 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { colors, spacing, radii } from '../../theme/blushDusk';
+import { useTheme } from '../../theme/ThemeContext';
+import { spacing, radii } from '../../theme/blushDusk';
 import Avatar from './Avatar';
 
 const ListRow = React.memo(({
@@ -15,6 +16,8 @@ const ListRow = React.memo(({
   badge,
   style,
 }) => {
+  const { colors } = useTheme();
+  styles = getStyles(colors);
   const Content = (
     <View style={[styles.row, style]}>
       {avatar !== undefined ? (
@@ -58,6 +61,7 @@ const ListRow = React.memo(({
 
 
 let styles;
+let colors;
 const getStyles = (colors) => StyleSheet.create({
   row: {
     flexDirection: 'row',

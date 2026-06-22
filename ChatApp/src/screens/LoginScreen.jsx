@@ -6,7 +6,8 @@ import { radii, spacing } from '../theme/blushDusk';
 import { useTheme } from '../theme/ThemeContext';
 
 export default function LoginScreen({ navigation }) {
-    const { colors, isDark, toggleTheme } = useTheme();
+    const { colors: themeColors, isDark, toggleTheme } = useTheme();
+  colors = themeColors;
   styles = getStyles(colors);
 const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -85,6 +86,7 @@ const [email, setEmail] = useState('');
 }
 
 let styles;
+let colors;
 const getStyles = (colors) => StyleSheet.create({
   inner: { flexGrow: 1, justifyContent: 'center', padding: spacing.xxl },
   brandRow: {

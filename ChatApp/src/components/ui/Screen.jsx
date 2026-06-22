@@ -5,7 +5,8 @@ import { spacing } from '../../theme/blushDusk';
 import { useTheme } from '../../theme/ThemeContext';
 
 export default function Screen({ children, style, noHorizontalPadding, safeArea = true }) {
-  const { colors, isDark, toggleTheme } = useTheme();
+  const { colors: themeColors, isDark, toggleTheme } = useTheme();
+  colors = themeColors;
   styles = getStyles(colors);
   const insets = useSafeAreaInsets();
 
@@ -29,6 +30,7 @@ export default function Screen({ children, style, noHorizontalPadding, safeArea 
 }
 
 let styles;
+let colors;
 const getStyles = (colors) => StyleSheet.create({
   container: {
     flex: 1,

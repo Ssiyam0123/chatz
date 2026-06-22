@@ -5,7 +5,8 @@ import { spacing, radii, typography } from '../../theme/blushDusk';
 import { useTheme } from '../../theme/ThemeContext';
 
 export default function SoftHeader({ title, onBack, trailing, style }) {
-  const { colors, isDark, toggleTheme } = useTheme();
+  const { colors: themeColors, isDark, toggleTheme } = useTheme();
+  colors = themeColors;
   styles = getStyles(colors);
   return (
     <View style={[styles.container, style]}>
@@ -25,6 +26,7 @@ export default function SoftHeader({ title, onBack, trailing, style }) {
 }
 
 let styles;
+let colors;
 const getStyles = (colors) => StyleSheet.create({
   container: {
     flexDirection: 'row',

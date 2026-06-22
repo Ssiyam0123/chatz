@@ -10,29 +10,32 @@ import GroupChatScreen from '../screens/GroupChatScreen';
 import GroupDetailsScreen from '../screens/GroupDetailsScreen';
 import MainTabNavigator from './MainTabNavigator';
 import ProfileScreen from '../screens/ProfileScreen';
-import { colors } from '../theme/blushDusk';
+import { useTheme } from '../theme/ThemeContext';
 
 const Stack = createStackNavigator();
 
-const defaultStackOptions = {
-  headerStyle: {
-    backgroundColor: colors.surface,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
-  },
-  headerTintColor: colors.text,
-  headerTitleStyle: {
-    fontWeight: '600',
-    fontSize: 17,
-    color: colors.text,
-  },
-  headerBackTitleVisible: false,
-};
-
 export default function AppNavigator() {
+  const { colors } = useTheme();
   const { token, isHydrated } = useAuthStore();
 
   if (!isHydrated) return null;
+
+  const defaultStackOptions = {
+    headerStyle: {
+      backgroundColor: colors.surface,
+      borderBottomWidth: 1,
+      borderBottomColor: colors.border,
+      shadowOpacity: 0,
+      elevation: 0,
+    },
+    headerTintColor: colors.text,
+    headerTitleStyle: {
+      fontWeight: '600',
+      fontSize: 17,
+      color: colors.text,
+    },
+    headerBackTitleVisible: false,
+  };
 
   return (
     <Stack.Navigator screenOptions={defaultStackOptions}>

@@ -18,7 +18,8 @@ import ListRow from '../components/ui/ListRow';
 import EmptyState from '../components/ui/EmptyState';
 
 export default function GroupListScreen({ navigation }) {
-    const { colors, isDark, toggleTheme } = useTheme();
+    const { colors: themeColors, isDark, toggleTheme } = useTheme();
+  colors = themeColors;
   styles = getStyles(colors);
 const [groups, setGroups] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -87,6 +88,7 @@ const [groups, setGroups] = useState([]);
 }
 
 let styles;
+let colors;
 const getStyles = (colors) => StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
