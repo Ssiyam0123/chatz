@@ -92,7 +92,7 @@ export default function GrowthPage() {
               <XAxis dataKey="date" tick={{ fontSize: 12 }} />
               <YAxis tick={{ fontSize: 12 }} />
               <Tooltip />
-              <Bar dataKey="count" fill="#6c5ce7" radius={[4, 4, 0, 0]} />
+              <Bar dataKey="count" fill="#B98298" radius={[4, 4, 0, 0]} />
             </BarChart>
           </ResponsiveContainer>
         </div>
@@ -114,8 +114,8 @@ export default function GrowthPage() {
               <YAxis tick={{ fontSize: 12 }} />
               <Tooltip />
               <Legend />
-              <Line type="monotone" dataKey="dau" stroke="#6c5ce7" strokeWidth={2} dot={false} name="DAU" />
-              <Line type="monotone" dataKey="wau" stroke="#a29bfe" strokeWidth={2} dot={false} name="WAU" />
+              <Line type="monotone" dataKey="dau" stroke="#B98298" strokeWidth={2} dot={false} name="DAU" />
+              <Line type="monotone" dataKey="wau" stroke="#E8CDD8" strokeWidth={2} dot={false} name="WAU" />
               <Line type="monotone" dataKey="mau" stroke="#22c55e" strokeWidth={2} dot={false} name="MAU" />
             </LineChart>
           </ResponsiveContainer>
@@ -138,8 +138,8 @@ export default function GrowthPage() {
               <YAxis tick={{ fontSize: 12 }} domain={[0, 100]} tickFormatter={(v) => `${v}%`} />
               <Tooltip formatter={(value: number) => `${value.toFixed(1)}%`} />
               <Legend />
-              <Line type="monotone" dataKey="week1" stroke="#6c5ce7" strokeWidth={2} dot={false} name="Week 1" />
-              <Line type="monotone" dataKey="week2" stroke="#a29bfe" strokeWidth={2} dot={false} name="Week 2" />
+              <Line type="monotone" dataKey="week1" stroke="#B98298" strokeWidth={2} dot={false} name="Week 1" />
+              <Line type="monotone" dataKey="week2" stroke="#E8CDD8" strokeWidth={2} dot={false} name="Week 2" />
               <Line type="monotone" dataKey="week4" stroke="#22c55e" strokeWidth={2} dot={false} name="Week 4" />
             </LineChart>
           </ResponsiveContainer>
@@ -162,7 +162,7 @@ export default function GrowthPage() {
               <XAxis type="number" tick={{ fontSize: 12 }} />
               <YAxis type="category" dataKey="event" tick={{ fontSize: 12 }} width={100} />
               <Tooltip />
-              <Bar dataKey="count" fill="#6c5ce7" radius={[0, 4, 4, 0]} />
+              <Bar dataKey="count" fill="#B98298" radius={[0, 4, 4, 0]} />
             </BarChart>
           </ResponsiveContainer>
         </div>

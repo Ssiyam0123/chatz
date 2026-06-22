@@ -37,7 +37,7 @@ import {
 } from "@/lib/api";
 import { formatNumber, formatPercent, timeAgo } from "@/lib/utils";
 
-const COLORS = ["#6c5ce7", "#a29bfe", "#22c55e", "#f59e0b", "#ef4444", "#3b82f6"];
+const COLORS = ["#B98298", "#E8CDD8", "#22c55e", "#f59e0b", "#ef4444", "#3b82f6"];
 
 interface StatCard {
   title: string;
@@ -217,7 +217,7 @@ export default function DashboardPage() {
                 <XAxis dataKey="date" tick={{ fontSize: 12 }} />
                 <YAxis tick={{ fontSize: 12 }} />
                 <Tooltip />
-                <Bar dataKey="count" fill="#6c5ce7" radius={[4, 4, 0, 0]} />
+                <Bar dataKey="count" fill="#B98298" radius={[4, 4, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
           </div>
@@ -238,8 +238,8 @@ export default function DashboardPage() {
                 <XAxis dataKey="date" tick={{ fontSize: 12 }} />
                 <YAxis tick={{ fontSize: 12 }} />
                 <Tooltip />
-                <Line type="monotone" dataKey="dau" stroke="#6c5ce7" strokeWidth={2} dot={false} />
-                <Line type="monotone" dataKey="wau" stroke="#a29bfe" strokeWidth={2} dot={false} />
+                <Line type="monotone" dataKey="dau" stroke="#B98298" strokeWidth={2} dot={false} />
+                <Line type="monotone" dataKey="wau" stroke="#E8CDD8" strokeWidth={2} dot={false} />
                 <Line type="monotone" dataKey="mau" stroke="#22c55e" strokeWidth={2} dot={false} />
               </LineChart>
             </ResponsiveContainer>

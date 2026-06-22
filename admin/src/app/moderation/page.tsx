@@ -127,7 +127,7 @@ export default function ModerationPage() {
               <XAxis dataKey="status" tick={{ fontSize: 12 }} />
               <YAxis tick={{ fontSize: 12 }} />
               <Tooltip />
-              <Line type="monotone" dataKey="avg_hours" stroke="#6c5ce7" strokeWidth={2} />
+              <Line type="monotone" dataKey="avg_hours" stroke="#B98298" strokeWidth={2} />
             </BarChart>
           </ResponsiveContainer>
         </div>
