@@ -290,24 +290,26 @@ export const getSuggestions = async (req, res) => {
     const offset = (page - 1) * limit;
 
     const { rows: countRows } = await pool.query(
-      `SELECT COUNT(*) as count 
-       FROM users 
-       WHERE id != $1 
-         AND id NOT IN (SELECT friend_id FROM user_friends WHERE user_id = $1)
-         AND id NOT IN (SELECT sender_id FROM friend_requests WHERE receiver_id = $1 OR sender_id = $1)
-         AND id NOT IN (SELECT receiver_id FROM friend_requests WHERE receiver_id = $1 OR sender_id = $1)`,
+      `SELECT COUNT(u.id) as count 
+       FROM users u
+       LEFT JOIN user_friends uf ON u.id = uf.friend_id AND uf.user_id = $1
+       LEFT JOIN friend_requests fr ON (u.id = fr.sender_id AND fr.receiver_id = $1) OR (u.id = fr.receiver_id AND fr.sender_id = $1)
+       WHERE u.id != $1 
+         AND uf.friend_id IS NULL
+         AND fr.id IS NULL`,
       [userId]
     );
     const count = parseInt(countRows[0].count);
 
     const { rows: suggestions } = await pool.query(
-      `SELECT id, name, avatar, bio, public_key as "publicKey" 
-       FROM users 
-       WHERE id != $1 
-         AND id NOT IN (SELECT friend_id FROM user_friends WHERE user_id = $1)
-         AND id NOT IN (SELECT sender_id FROM friend_requests WHERE receiver_id = $1 OR sender_id = $1)
-         AND id NOT IN (SELECT receiver_id FROM friend_requests WHERE receiver_id = $1 OR sender_id = $1)
-       ORDER BY name ASC 
+      `SELECT u.id, u.name, u.avatar, u.bio, u.public_key as "publicKey" 
+       FROM users u
+       LEFT JOIN user_friends uf ON u.id = uf.friend_id AND uf.user_id = $1
+       LEFT JOIN friend_requests fr ON (u.id = fr.sender_id AND fr.receiver_id = $1) OR (u.id = fr.receiver_id AND fr.sender_id = $1)
+       WHERE u.id != $1 
+         AND uf.friend_id IS NULL
+         AND fr.id IS NULL
+       ORDER BY u.id DESC 
        LIMIT $2 OFFSET $3`,
       [userId, limit, offset]
     );
