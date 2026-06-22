@@ -7,6 +7,7 @@ import ChatScreen from '../screens/ChatScreen';
 import GroupListScreen from '../screens/GroupListScreen';
 import CreateGroupScreen from '../screens/CreateGroupScreen';
 import GroupChatScreen from '../screens/GroupChatScreen';
+import GroupDetailsScreen from '../screens/GroupDetailsScreen';
 import MainTabNavigator from './MainTabNavigator';
 import ProfileScreen from '../screens/ProfileScreen';
 import { colors } from '../theme/blushDusk';
@@ -52,6 +53,11 @@ export default function AppNavigator() {
             name="GroupChat" 
             component={GroupChatScreen} 
             options={({ route }) => ({ title: route.params.groupName })} 
+          />
+          <Stack.Screen 
+            name="GroupDetails" 
+            component={GroupDetailsScreen} 
+            options={{ title: 'Group Info' }} 
           />
           <Stack.Screen 
             name="CreateGroup" 

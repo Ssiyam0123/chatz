@@ -170,3 +170,86 @@ export const addMembers = async (req, res) => {
     res.status(400).json({ message: err.message });
   }
 };
+
+// Edit group details (name, avatar)
+export const updateGroup = async (req, res) => {
+  try {
+    const { groupId } = req.params;
+    const { name, avatar } = req.body;
+
+    const { rows: groups } = await pool.query('SELECT creator_id as "creatorId" FROM groups WHERE id = $1', [groupId]);
+    if (groups.length === 0) {
+      return res.status(404).json({ message: 'Group not found' });
+    }
+    if (groups[0].creatorId !== req.user.id) {
+      return res.status(403).json({ message: 'Only creator can edit group details' });
+    }
+
+    await pool.query(
+      'UPDATE groups SET name = COALESCE($1, name), avatar = COALESCE($2, avatar), updated_at = NOW() WHERE id = $3',
+      [name, avatar, groupId]
+    );
+
+    const populated = await getPopulatedGroup(groupId);
+    res.status(200).json({ status: 'success', data: populated });
+  } catch (err) {
+    res.status(400).json({ message: err.message });
+  }
+};
+
+// Remove members from group
+export const removeMembers = async (req, res) => {
+  try {
+    const { groupId, memberIds } = req.body;
+    
+    const { rows: groups } = await pool.query('SELECT creator_id as "creatorId" FROM groups WHERE id = $1', [groupId]);
+    
+    if (groups.length === 0) {
+      return res.status(404).json({ message: 'Group not found' });
+    }
+    
+    if (groups[0].creatorId !== req.user.id) {
+      return res.status(403).json({ message: 'Only creator can remove members' });
+    }
+
+    if (memberIds && memberIds.length > 0) {
+      const idsToRemove = memberIds.filter(id => id !== req.user.id);
+      if (idsToRemove.length > 0) {
+        await pool.query(
+          'DELETE FROM group_members WHERE group_id = $1 AND user_id = ANY($2::uuid[])',
+          [groupId, idsToRemove]
+        );
+      }
+    }
+
+    const populated = await getPopulatedGroup(groupId);
+    res.status(200).json({ status: 'success', data: populated });
+  } catch (err) {
+    res.status(400).json({ message: err.message });
+  }
+};
+
+// Leave group
+export const leaveGroup = async (req, res) => {
+  try {
+    const { groupId } = req.params;
+    
+    const { rows: groups } = await pool.query('SELECT creator_id as "creatorId" FROM groups WHERE id = $1', [groupId]);
+    if (groups.length === 0) {
+      return res.status(404).json({ message: 'Group not found' });
+    }
+
+    if (groups[0].creatorId === req.user.id) {
+      return res.status(400).json({ message: 'Creator cannot leave the group' });
+    }
+
+    await pool.query(
+      'DELETE FROM group_members WHERE group_id = $1 AND user_id = $2',
+      [groupId, req.user.id]
+    );
+
+    res.status(200).json({ status: 'success', message: 'Left group successfully' });
+  } catch (err) {
+    res.status(400).json({ message: err.message });
+  }
+};

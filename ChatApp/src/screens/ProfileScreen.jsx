@@ -26,7 +26,9 @@ import { useFocusEffect } from '@react-navigation/native';
 import { api } from '../api/api';
 import { colors, radii, spacing } from '../theme/blushDusk';
 import Avatar from '../components/ui/Avatar';
+import ExpandableText from '../components/ui/ExpandableText';
 import PrimaryButton from '../components/ui/PrimaryButton';
+import ReportModal from '../components/ui/ReportModal';
 
 const { width } = Dimensions.get('window');
 
@@ -81,6 +83,16 @@ export default function ProfileScreen({ route, navigation }) {
   const [commentInputs, setCommentInputs] = useState({});
   const [visibleComments, setVisibleComments] = useState({});
   const [activeReactionPickerPostId, setActiveReactionPickerPostId] = useState(null);
+  const [reactedUsersModalData, setReactedUsersModalData] = useState(null);
+  
+  // Report Modal
+  const [reportModalVisible, setReportModalVisible] = useState(false);
+  const [reportTarget, setReportTarget] = useState({ type: 'user', id: null, name: '' });
+
+  const handleReportUser = () => {
+    setReportTarget({ type: 'user', id: targetUserId, name: displayedUser?.name || 'user' });
+    setReportModalVisible(true);
+  };
 
   const currentUserId = user?.id || user?._id;
   const routeParamsUserId = route?.params?.userId;
@@ -416,7 +428,7 @@ export default function ProfileScreen({ route, navigation }) {
     const [activeIndex, setActiveIndex] = useState(0);
     if (!images || images.length === 0) return null;
     if (images.length === 1) {
-      return <Image source={{ uri: images[0] }} style={styles.postImage} resizeMode="cover" />;
+      return <Image source={{ uri: images[0] }} style={styles.postImage} contentFit="contain" />;
     }
     return (
       <View style={styles.carouselContainer}>
@@ -433,7 +445,7 @@ export default function ProfileScreen({ route, navigation }) {
           scrollEventThrottle={16}
         >
           {images.map((img, idx) => (
-            <Image key={idx} source={{ uri: img }} style={styles.carouselImage} resizeMode="cover" />
+            <Image key={idx} source={{ uri: img }} style={styles.carouselImage} contentFit="contain" />
           ))}
         </ScrollView>
         <View style={styles.paginationDots}>
@@ -501,13 +513,13 @@ export default function ProfileScreen({ route, navigation }) {
         </View>
 
         {/* Post Content */}
-        {item.content ? <Text style={styles.postContent}>{item.content}</Text> : null}
+        {item.content ? <ExpandableText text={item.content} style={styles.postContent} /> : null}
 
         {/* Post Images */}
         {item.images && item.images.length > 0 ? (
           <PostImagesCarousel images={item.images} />
         ) : item.image ? (
-          <Image source={{ uri: item.image }} style={styles.postImage} resizeMode="cover" />
+          <Image source={{ uri: item.image }} style={styles.postImage} contentFit="contain" />
         ) : null}
 
         {/* Shared Post Container */}
@@ -531,28 +543,34 @@ export default function ProfileScreen({ route, navigation }) {
               </View>
             </View>
             {item.originalPost.content ? (
-              <Text style={styles.sharedContent}>{item.originalPost.content}</Text>
+              <ExpandableText text={item.originalPost.content} style={styles.sharedContent} />
             ) : null}
             {item.originalPost.images && item.originalPost.images.length > 0 ? (
               <PostImagesCarousel images={item.originalPost.images} />
             ) : item.originalPost.image ? (
-              <Image source={{ uri: item.originalPost.image }} style={styles.sharedImage} resizeMode="cover" />
+              <Image source={{ uri: item.originalPost.image }} style={styles.sharedImage} contentFit="contain" />
             ) : null}
           </View>
         ) : null}
 
         {/* Counters */}
         <View style={styles.countersRow}>
-          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-            {uniqueEmojis.slice(0, 3).map((emoji, i) => (
-              <Text key={i} style={[styles.reactionMiniEmoji, { marginLeft: i > 0 ? -4 : 0 }]}>
-                {emoji}
+          <TouchableOpacity
+            style={styles.counterItem}
+            disabled={reactionsList.length === 0}
+            onPress={() => setReactedUsersModalData(reactionsList)}
+          >
+            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+              {uniqueEmojis.slice(0, 3).map((emoji, i) => (
+                <Text key={i} style={[styles.reactionMiniEmoji, { marginLeft: i > 0 ? -4 : 0 }]}>
+                  {emoji}
+                </Text>
+              ))}
+              <Text style={styles.counterText}>
+                {reactionsList.length > 0 ? ` ${reactionsList.length}` : ' 0'}
               </Text>
-            ))}
-            <Text style={styles.counterText}>
-              {reactionsList.length > 0 ? ` ${reactionsList.length}` : ' 0'}
-            </Text>
-          </View>
+            </View>
+          </TouchableOpacity>
           <View style={{ flexDirection: 'row', alignItems: 'center' }}>
             <Text style={styles.counterText}>{commentsList.length} Comments</Text>
             <Text style={[styles.counterText, { marginLeft: 10 }]}>
@@ -784,6 +802,16 @@ export default function ProfileScreen({ route, navigation }) {
                         <Text style={styles.editButtonText}>Add Friend</Text>
                       </TouchableOpacity>
                     )}
+                    {/* Report User Button */}
+                    {!isOwnProfile && (
+                      <TouchableOpacity
+                        style={[styles.logoutButton, { borderColor: colors.textSoft, marginLeft: spacing.sm, flex: 0, paddingHorizontal: spacing.md }]}
+                        onPress={() => handleReportUser()}
+                        activeOpacity={0.85}
+                      >
+                        <Ionicons name="flag-outline" size={18} color={colors.textMuted} />
+                      </TouchableOpacity>
+                    )}
                   </>
                 )}
               </View>
@@ -976,6 +1004,58 @@ export default function ProfileScreen({ route, navigation }) {
           </View>
         </KeyboardAvoidingView>
       </Modal>
+
+      {/* Reacted Users Modal */}
+      <Modal
+        visible={!!reactedUsersModalData}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setReactedUsersModalData(null)}
+      >
+        <View style={styles.centerModalOverlay}>
+          <View style={styles.centerModalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={[styles.modalTitle, { marginBottom: 0, textAlign: 'left' }]}>Reactions</Text>
+              <TouchableOpacity onPress={() => setReactedUsersModalData(null)}>
+                <Ionicons name="close" size={24} color="#333" />
+              </TouchableOpacity>
+            </View>
+            <FlatList
+              data={reactedUsersModalData}
+              keyExtractor={(item, index) => item.id || item._id || index.toString()}
+              renderItem={({ item }) => {
+                const reactant = item.user || {};
+                const rType = REACTION_TYPES.find(rt => rt.type === item.type);
+                return (
+                  <View style={styles.reactantRow}>
+                    {reactant.avatar ? (
+                      <Image source={{ uri: reactant.avatar }} style={styles.reactantAvatar} />
+                    ) : (
+                      <View style={[styles.reactantAvatar, styles.avatarPlaceholder]}>
+                        <Text style={styles.avatarText}>
+                          {reactant.name ? reactant.name[0].toUpperCase() : '?'}
+                        </Text>
+                      </View>
+                    )}
+                    <Text style={styles.reactantName}>{reactant.name || 'Anonymous'}</Text>
+                    <Text style={styles.reactantEmoji}>{rType?.emoji}</Text>
+                  </View>
+                );
+              }}
+              style={{ maxHeight: 300 }}
+            />
+          </View>
+        </View>
+      </Modal>
+
+      {/* Report Modal */}
+      <ReportModal
+        visible={reportModalVisible}
+        onClose={() => setReportModalVisible(false)}
+        targetType={reportTarget.type}
+        targetId={reportTarget.id}
+        targetName={reportTarget.name}
+      />
     </SafeAreaView>
   );
 }
@@ -1187,13 +1267,14 @@ const styles = StyleSheet.create({
   },
   postImage: {
     width: '100%',
-    height: 220,
+    aspectRatio: 4 / 3,
+    backgroundColor: '#000',
     borderRadius: radii.small,
     marginBottom: spacing.sm
   },
   carouselContainer: {
     width: '100%',
-    height: 220,
+    aspectRatio: 4 / 3,
     borderRadius: radii.small,
     overflow: 'hidden',
     marginBottom: spacing.sm,
@@ -1201,7 +1282,8 @@ const styles = StyleSheet.create({
   },
   carouselImage: {
     width: width - 32,
-    height: 220
+    aspectRatio: 4 / 3,
+    backgroundColor: '#000'
   },
   paginationDots: {
     flexDirection: 'row',
@@ -1247,7 +1329,8 @@ const styles = StyleSheet.create({
   },
   sharedImage: {
     width: '100%',
-    height: 180,
+    aspectRatio: 4 / 3,
+    backgroundColor: '#000',
     borderRadius: radii.small
   },
   countersRow: {
@@ -1491,5 +1574,53 @@ const styles = StyleSheet.create({
     color: colors.white,
     fontWeight: '600',
     fontSize: 15
-  }
+  },
+  counterItem: {
+    paddingVertical: spacing.xs,
+  },
+  centerModalOverlay: {
+    flex: 1,
+    backgroundColor: colors.overlay,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  centerModalContent: {
+    backgroundColor: colors.surface,
+    borderRadius: radii.medium,
+    padding: spacing.xl,
+    width: '85%',
+    maxWidth: 400,
+    maxHeight: '70%',
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingBottom: spacing.lg,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+    marginBottom: spacing.sm,
+  },
+  reactantRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: spacing.md,
+    borderBottomWidth: 0.5,
+    borderBottomColor: colors.border,
+  },
+  reactantAvatar: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+  },
+  reactantName: {
+    fontSize: 14,
+    color: colors.text,
+    fontWeight: '500',
+    marginLeft: spacing.md,
+    flex: 1,
+  },
+  reactantEmoji: {
+    fontSize: 20,
+  },
 });

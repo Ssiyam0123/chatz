@@ -280,25 +280,24 @@ const useChatStore = create((set, get) => ({
       get().fetchStories();
     });
 
-    socket.on('friend_request_received', () => {
-      get().fetchFriendRequests();
-      get().fetchSuggestions();
-      get().fetchUsers(false);
-    });
+    // Debounced social refresh - avoids waterfall API calls on rapid social events
+    let _socialRefreshTimer = null;
+    const debouncedSocialRefresh = () => {
+      clearTimeout(_socialRefreshTimer);
+      _socialRefreshTimer = setTimeout(() => {
+        Promise.all([
+          get().fetchFriendRequests(),
+          get().fetchFriends(),
+          get().fetchSuggestions(),
+          get().fetchConversations(),
+          // Note: fetchUsers NOT called here - it fetches ALL 2000 users unnecessarily
+        ]);
+      }, 500);
+    };
 
-    socket.on('friend_request_responded', () => {
-      get().fetchFriendRequests();
-      get().fetchFriends();
-      get().fetchSuggestions();
-      get().fetchUsers(false);
-    });
-
-    socket.on('friend_removed', () => {
-      get().fetchFriendRequests();
-      get().fetchFriends();
-      get().fetchSuggestions();
-      get().fetchUsers(false);
-    });
+    socket.on('friend_request_received', debouncedSocialRefresh);
+    socket.on('friend_request_responded', debouncedSocialRefresh);
+    socket.on('friend_removed', debouncedSocialRefresh);
     
     set({ _socket: socket });
     
@@ -416,9 +415,13 @@ const useChatStore = create((set, get) => ({
     } catch (err) { console.error(err); }
   },
   
-  fetchChatHistory: async (partnerId) => {
+  fetchChatHistory: async (partnerId, before = null) => {
     try {
-      const res = await api.get(`/chat/history/${partnerId}`);
+      let url = `/chat/history/${partnerId}`;
+      if (before) {
+        url += `?before=${encodeURIComponent(before)}`;
+      }
+      const res = await api.get(url);
       const { user, e2eePrivateKey } = get();
       const currentUserId = user?.id || user?._id;
 
@@ -427,10 +430,35 @@ const useChatStore = create((set, get) => ({
         decryptSingleMessage(m, currentUserId, e2eePrivateKey)
       );
 
-      set((state) => ({
-        privateMessagesCache: { ...state.privateMessagesCache, [partnerId]: decryptedMessages }
-      }));
-    } catch (err) { console.error(err); }
+      set((state) => {
+        const existing = state.privateMessagesCache[partnerId] || [];
+        const combined = before 
+          ? [...decryptedMessages, ...existing]
+          : decryptedMessages;
+          
+        const seen = new Set();
+        const unique = [];
+        for (let i = combined.length - 1; i >= 0; i--) {
+          const m = combined[i];
+          const id = m.id || m._id || m.clientId;
+          if (!seen.has(id)) {
+            seen.add(id);
+            unique.unshift(m);
+          }
+        }
+
+        return {
+          privateMessagesCache: { 
+            ...state.privateMessagesCache, 
+            [partnerId]: unique 
+          }
+        };
+      });
+      return decryptedMessages;
+    } catch (err) { 
+      console.error(err); 
+      return [];
+    }
   },
   
   sendMessage: async (receiverId, text, imageUrl = null) => {
@@ -446,9 +474,8 @@ const useChatStore = create((set, get) => ({
       receiverPublicKey = receiverUser.publicKey;
     } else {
       try {
-        const res = await api.get('/chat/users');
-        const found = res.data.data.find(u => (u._id || u.id) === receiverId);
-        if (found) receiverPublicKey = found.publicKey;
+        const res = await api.get(`/user/${receiverId}/public-key`);
+        if (res.data?.data?.publicKey) receiverPublicKey = res.data.data.publicKey;
       } catch (err) {
         console.error('Could not fetch user public key:', err);
       }
@@ -610,9 +637,8 @@ const useChatStore = create((set, get) => ({
             receiverPublicKey = receiverUser.publicKey;
           } else {
             try {
-              const res = await api.get('/chat/users');
-              const found = res.data.data.find(u => (u._id || u.id) === identifier);
-              if (found) receiverPublicKey = found.publicKey;
+              const res = await api.get(`/user/${identifier}/public-key`);
+              if (res.data?.data?.publicKey) receiverPublicKey = res.data.data.publicKey;
             } catch (err) {
               console.error('Could not fetch user public key:', err);
             }
@@ -790,6 +816,7 @@ const useChatStore = create((set, get) => ({
       get().fetchFriends();
       get().fetchUsers(false);
       get().fetchSuggestions();
+      get().fetchConversations();
     } catch (err) {
       console.error('Error responding to friend request:', err.response?.data || err.message);
       // Rollback on failure
@@ -824,6 +851,7 @@ const useChatStore = create((set, get) => ({
       get().fetchFriends();
       get().fetchUsers(false);
       get().fetchSuggestions();
+      get().fetchConversations();
     } catch (err) {
       console.error('Error removing friend:', err.response?.data || err.message);
       // Rollback on failure

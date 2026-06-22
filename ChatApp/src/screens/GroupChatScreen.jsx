@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useMemo, useCallback } from 'react';
 import {
   View,
   Text,
@@ -9,25 +9,82 @@ import {
   KeyboardAvoidingView,
   Platform,
   ActivityIndicator,
-  Image,
   Alert,
   SafeAreaView,
   TouchableWithoutFeedback,
   Keyboard,
 } from 'react-native';
+import { Image } from 'expo-image';
 import useChatStore from '../stores/chatStore';
 import * as ImagePicker from 'expo-image-picker';
 import { Ionicons } from '@expo/vector-icons';
 import { useHeaderHeight } from '@react-navigation/elements';
 import { colors, radii, spacing } from '../theme/blushDusk';
 import Avatar from '../components/ui/Avatar';
+import ReportModal from '../components/ui/ReportModal';
 
 const EMPTY_ARRAY = [];
 const EMPTY_OBJECT = {};
 
-export default function GroupChatScreen({ route }) {
+const GroupMessageItem = React.memo(({ item, currentUserId, onReport }) => {
+  const senderId = item.sender?.id || item.sender?._id || item.sender;
+  const isMe = senderId === currentUserId || senderId?.toString() === currentUserId;
+
+  return (
+    <View style={[styles.messageRow, isMe ? styles.myMessageRow : styles.otherMessageRow]}>
+      {!isMe && (
+        <View style={styles.senderAvatarWrap}>
+          <Avatar uri={item.sender?.avatar} name={item.sender?.name} size="sm" />
+        </View>
+      )}
+      <View style={[styles.messageBubble, isMe ? styles.myBubble : styles.otherBubble]}>
+        {!isMe && <Text style={styles.senderName}>{item.sender?.name || 'Unknown'}</Text>}
+        {item.image && (
+          <View style={styles.imageWrapper}>
+            <Image
+              source={{ uri: item.image }}
+              style={styles.messageImage}
+              cachePolicy="memory-disk"
+              recyclingKey={item.image}
+              contentFit="cover"
+            />
+            {item.isUploading && (
+              <View style={styles.uploadingOverlay}>
+                <ActivityIndicator color={colors.white} />
+                <Text style={styles.uploadingText}>Sending…</Text>
+              </View>
+            )}
+          </View>
+        )}
+        {item.text ? <Text style={isMe ? styles.myMessageText : styles.otherMessageText}>{item.text}</Text> : null}
+        <View style={styles.groupMsgMeta}>
+          <Text style={[styles.time, isMe ? styles.myTime : styles.otherTime]}>
+            {item.createdAt && typeof item.createdAt !== 'undefined' && !isNaN(new Date(item.createdAt).getTime())
+              ? new Date(item.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+              : item.isUploading ? 'Sending...' : ''}
+          </Text>
+          {!isMe && !item.isUploading && (
+            <TouchableOpacity
+              onPress={() => onReport(item)}
+              style={styles.reportGMsgBtn}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            >
+              <Ionicons name="flag-outline" size={12} color={colors.textSoft} />
+            </TouchableOpacity>
+          )}
+        </View>
+      </View>
+    </View>
+  );
+});
+
+
+
+export default function GroupChatScreen({ route, navigation }) {
   const { groupId, groupName } = route.params;
   const [inputText, setInputText] = React.useState('');
+  const [reportModalVisible, setReportModalVisible] = React.useState(false);
+  const [reportTarget, setReportTarget] = React.useState(null);
   const flatListRef = useRef(null);
   const headerHeight = useHeaderHeight();
 
@@ -47,14 +104,24 @@ export default function GroupChatScreen({ route }) {
   const typingTimeoutRef = useRef(null);
 
   useEffect(() => {
+    navigation.setOptions({
+      headerRight: () => (
+        <TouchableOpacity
+          style={{ marginRight: spacing.md, padding: spacing.xs }}
+          onPress={() => navigation.navigate('GroupDetails', { groupId, groupName })}
+        >
+          <Ionicons name="information-circle-outline" size={24} color={colors.primary} />
+        </TouchableOpacity>
+      ),
+    });
+  }, [navigation, groupId, groupName]);
+
+  useEffect(() => {
     fetchGroupMessages(groupId);
   }, [groupId]);
 
-  useEffect(() => {
-    if (messages.length > 0) {
-      setTimeout(() => flatListRef.current?.scrollToEnd({ animated: true }), 100);
-    }
-  }, [messages.length]);
+  // Reverse messages for inverted FlatList (newest first)
+  const invertedMessages = useMemo(() => [...messages].reverse(), [messages]);
 
   const handleSend = () => {
     if (!inputText.trim()) return;
@@ -99,40 +166,20 @@ export default function GroupChatScreen({ route }) {
     typingTimeoutRef.current = setTimeout(stopTyping, 2000);
   };
 
-  const renderMessage = ({ item }) => {
-    const senderId = item.sender?.id || item.sender?._id || item.sender;
-    const isMe = senderId === currentUserId || senderId?.toString() === currentUserId;
+  const handleReportMessage = useCallback((message) => {
+    setReportTarget({ type: 'message', id: message.id || message._id, name: message.sender?.name || groupName });
+    setReportModalVisible(true);
+  }, [groupName]);
 
-    return (
-      <View style={[styles.messageRow, isMe ? styles.myMessageRow : styles.otherMessageRow]}>
-        {!isMe && (
-          <View style={styles.senderAvatarWrap}>
-            <Avatar uri={item.sender?.avatar} name={item.sender?.name} size="sm" />
-          </View>
-        )}
-        <View style={[styles.messageBubble, isMe ? styles.myBubble : styles.otherBubble]}>
-          {!isMe && <Text style={styles.senderName}>{item.sender?.name || 'Unknown'}</Text>}
-          {item.image && (
-            <View style={styles.imageWrapper}>
-              <Image source={{ uri: item.image }} style={styles.messageImage} />
-              {item.isUploading && (
-                <View style={styles.uploadingOverlay}>
-                  <ActivityIndicator color={colors.white} />
-                  <Text style={styles.uploadingText}>Sending…</Text>
-                </View>
-              )}
-            </View>
-          )}
-          {item.text ? <Text style={isMe ? styles.myMessageText : styles.otherMessageText}>{item.text}</Text> : null}
-          <Text style={[styles.time, isMe ? styles.myTime : styles.otherTime]}>
-            {item.createdAt && typeof item.createdAt !== 'undefined' && !isNaN(new Date(item.createdAt).getTime()) 
-              ? new Date(item.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-              : item.isUploading ? 'Sending...' : ''}
-          </Text>
-        </View>
-      </View>
-    );
-  };
+  const renderMessage = useCallback(({ item }) => (
+    <GroupMessageItem item={item} currentUserId={currentUserId} onReport={handleReportMessage} />
+  ), [currentUserId, handleReportMessage]);
+
+  const handleLoadOlderMessages = useCallback(() => {
+    if (messages.length > 0) {
+      fetchGroupMessages(groupId); // Group messages don't paginate for now
+    }
+  }, [messages, groupId]);
 
   const typingNames = Object.values(typingUsers);
   const typingLabel = typingNames.length > 0 ? `${typingNames.join(', ')} is typing…` : null;
@@ -144,44 +191,57 @@ export default function GroupChatScreen({ route }) {
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         keyboardVerticalOffset={headerHeight}
       >
-        <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
-          <View style={{ flex: 1 }}>
-            <FlatList
-              ref={flatListRef}
-              data={messages}
-              keyExtractor={(item) => item._id || item.clientId}
-              renderItem={renderMessage}
-              contentContainerStyle={styles.listContent}
-              onContentSizeChange={() => flatListRef.current?.scrollToEnd({ animated: true })}
-            />
+        <View style={{ flex: 1 }}>
+          <FlatList
+            ref={flatListRef}
+            data={invertedMessages}
+            inverted
+            keyExtractor={(item, index) => item._id || item.clientId || `gmsg-${index}`}
+            renderItem={renderMessage}
+            contentContainerStyle={styles.listContent}
+            keyboardDismissMode="interactive"
+            keyboardShouldPersistTaps="handled"
+            removeClippedSubviews={true}
+            maxToRenderPerBatch={10}
+            windowSize={5}
+            initialNumToRender={15}
+            updateCellsBatchingPeriod={50}
+          />
 
-            {typingLabel && (
-              <View style={styles.typingBar}>
-                <Text style={styles.typingText}>{typingLabel}</Text>
-              </View>
-            )}
-
-            <View style={styles.inputWrap}>
-              <TouchableOpacity onPress={pickImage} style={styles.attachButton} disabled={uploadingImage}>
-                <Ionicons name="image-outline" size={24} color={uploadingImage ? colors.textSoft : colors.secondary} />
-              </TouchableOpacity>
-              <TextInput
-                style={styles.textInput}
-                placeholder="Type a message…"
-                placeholderTextColor={colors.textSoft}
-                value={inputText}
-                onChangeText={onChangeText}
-                multiline
-              />
-              <TouchableOpacity onPress={handleSend} disabled={!inputText.trim()}>
-                <View style={[styles.sendBtn, !inputText.trim() && styles.sendBtnDisabled]}>
-                  <Ionicons name="send" size={18} color={colors.white} />
-                </View>
-              </TouchableOpacity>
+          {typingLabel && (
+            <View style={styles.typingBar}>
+              <Text style={styles.typingText}>{typingLabel}</Text>
             </View>
+          )}
+
+          <View style={styles.inputWrap}>
+            <TouchableOpacity onPress={pickImage} style={styles.attachButton} disabled={uploadingImage}>
+              <Ionicons name="image-outline" size={24} color={uploadingImage ? colors.textSoft : colors.secondary} />
+            </TouchableOpacity>
+            <TextInput
+              style={styles.textInput}
+              placeholder="Type a message…"
+              placeholderTextColor={colors.textSoft}
+              value={inputText}
+              onChangeText={onChangeText}
+              multiline
+            />
+            <TouchableOpacity onPress={handleSend} disabled={!inputText.trim()}>
+              <View style={[styles.sendBtn, !inputText.trim() && styles.sendBtnDisabled]}>
+                <Ionicons name="send" size={18} color={colors.white} />
+              </View>
+            </TouchableOpacity>
           </View>
-        </TouchableWithoutFeedback>
+        </View>
       </KeyboardAvoidingView>
+
+      <ReportModal
+        visible={reportModalVisible}
+        onClose={() => setReportModalVisible(false)}
+        targetType={reportTarget?.type}
+        targetId={reportTarget?.id}
+        targetName={reportTarget?.name ? `Message from ${reportTarget.name}` : groupName}
+      />
     </SafeAreaView>
   );
 }
@@ -189,7 +249,7 @@ export default function GroupChatScreen({ route }) {
 const styles = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: colors.background },
   container: { flex: 1, backgroundColor: colors.background },
-  listContent: { paddingHorizontal: spacing.md, paddingTop: spacing.sm, paddingBottom: spacing.sm },
+  listContent: { paddingHorizontal: spacing.md, paddingTop: spacing.sm, paddingBottom: spacing.sm, flexGrow: 1 },
   messageRow: { flexDirection: 'row', marginBottom: spacing.sm, alignItems: 'flex-end' },
   myMessageRow: { justifyContent: 'flex-end' },
   otherMessageRow: { justifyContent: 'flex-start' },
@@ -201,9 +261,11 @@ const styles = StyleSheet.create({
   senderName: { fontWeight: '600', fontSize: 12, marginBottom: 4, color: colors.secondary },
   myMessageText: { color: colors.text, fontSize: 15 },
   otherMessageText: { color: colors.text, fontSize: 15 },
-  time: { fontSize: 10, marginTop: 4, alignSelf: 'flex-end' },
+  groupMsgMeta: { flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', marginTop: 4 },
+  time: { fontSize: 10 },
   myTime: { color: colors.textMuted },
   otherTime: { color: colors.textSoft },
+  reportGMsgBtn: { marginLeft: 6, padding: 2 },
   imageWrapper: { position: 'relative' },
   messageImage: { width: 220, height: 160, borderRadius: radii.small, marginBottom: 4, backgroundColor: colors.surfaceMuted },
   uploadingOverlay: { ...StyleSheet.absoluteFillObject, backgroundColor: colors.overlay, borderRadius: radii.small, justifyContent: 'center', alignItems: 'center' },

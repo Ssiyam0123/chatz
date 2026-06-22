@@ -16,6 +16,8 @@ import uploadRoutes from './src/modules/upload/upload.route.js';
 import friendRoutes from './src/modules/friend/friend.route.js';
 import postRoutes from './src/modules/post/post.route.js';
 import storyRoutes from './src/modules/story/story.route.js';
+import reportRoutes from './src/modules/report/report.route.js';
+import adminRoutes from './src/modules/admin/admin.route.js';
 
 const app = express();
 const server = http.createServer(app);
@@ -100,6 +102,8 @@ app.use('/api/v1/upload', uploadRoutes);
 app.use('/api/v1/friends', friendRoutes);
 app.use('/api/v1/posts', postRoutes);
 app.use('/api/v1/stories', storyRoutes);
+app.use('/api/v1/reports', reportRoutes);
+app.use('/api/v1/admin', adminRoutes);
 
 // ─── Global error handler ────────────────────────────────────────────────────
 // Produces the standard { status:'error', error:{ code, message } } envelope.

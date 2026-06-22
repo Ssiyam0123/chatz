@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   View,
   Text,
@@ -6,7 +6,6 @@ import {
   ScrollView,
   TextInput,
   TouchableOpacity,
-  Image,
   FlatList,
   Modal,
   ActivityIndicator,
@@ -16,6 +15,7 @@ import {
   Platform,
   StatusBar,
 } from 'react-native';
+import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import useChatStore from '../stores/chatStore';
@@ -24,6 +24,8 @@ import { useFocusEffect } from '@react-navigation/native';
 import { uploadImage } from '../api/api';
 import { colors, radii, spacing } from '../theme/blushDusk';
 import Avatar from '../components/ui/Avatar';
+import ExpandableText from '../components/ui/ExpandableText';
+import ReportModal from '../components/ui/ReportModal';
 
 const { width, height } = Dimensions.get('window');
 
@@ -36,30 +38,404 @@ const REACTION_TYPES = [
   { type: 'angry', label: 'Angry', emoji: '😡', color: '#dd2e44' },
 ];
 
+
+// ----------------------------------------------------
+// MEMOIZED POST COMPONENTS
+// ----------------------------------------------------
+
+const PostImagesCarousel = React.memo(({ images }) => {
+  const [activeIndex, setActiveIndex] = useState(0);
+  if (!images || images.length === 0) return null;
+  if (images.length === 1) {
+    return <Image source={{ uri: images[0] }} style={styles.postImage} contentFit="contain" />;
+  }
+  return (
+    <View style={styles.carouselContainer}>
+      <ScrollView
+        horizontal
+        pagingEnabled
+        showsHorizontalScrollIndicator={false}
+        onScroll={(e) => {
+          const slide = Math.round(e.nativeEvent.contentOffset.x / (width - 20));
+          if (slide !== activeIndex) {
+            setActiveIndex(slide);
+          }
+        }}
+        scrollEventThrottle={16}
+      >
+        {images.map((img, idx) => (
+          <Image key={idx} source={{ uri: img }} style={styles.carouselImage} contentFit="contain" />
+        ))}
+      </ScrollView>
+      <View style={styles.paginationDots}>
+        {images.map((_, idx) => (
+          <View
+            key={idx}
+            style={[
+              styles.paginationDot,
+              activeIndex === idx ? styles.paginationDotActive : styles.paginationDotInactive
+            ]}
+          />
+        ))}
+      </View>
+    </View>
+  );
+});
+
+const PostCard = React.memo(({ item, currentUserId, navigation, handleStartEditPost, handleDeletePost, handleShare, setReactedUsersModalData, onReport }) => {
+  const [commentInput, setCommentInput] = useState('');
+  const [isCommentsVisible, setIsCommentsVisible] = useState(false);
+  const [reactionPickerPostId, setReactionPickerPostId] = useState(null);
+  const [reactionPickerCommentId, setReactionPickerCommentId] = useState(null);
+
+  const toggleLikePost = useChatStore(state => state.toggleLikePost);
+  const toggleReactionComment = useChatStore(state => state.toggleReactionComment);
+  const addComment = useChatStore(state => state.addComment);
+
+  const postId = item.id || item._id;
+  const postUser = item.user || {};
+  const commentsList = item.comments || [];
+
+  const userReaction = item.reactions?.find(r => (r.user?._id || r.user?.id || r.user) === currentUserId);
+  const activeReaction = REACTION_TYPES.find(rt => rt.type === userReaction?.type);
+
+  const reactionsList = item.reactions || [];
+  const uniqueEmojiTypes = [...new Set(reactionsList.map(r => r.type))];
+  const uniqueEmojis = uniqueEmojiTypes
+    .map(t => REACTION_TYPES.find(rt => rt.type === t)?.emoji)
+    .filter(Boolean);
+
+  const handleReactionSelect = async (type) => {
+    try {
+      await toggleLikePost(postId, type);
+      setReactionPickerPostId(null);
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const handleCommentReactionSelect = async (commentId, type) => {
+    try {
+      await toggleReactionComment(postId, commentId, type);
+      setReactionPickerCommentId(null);
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const handleAddCommentSubmit = async () => {
+    if (!commentInput || !commentInput.trim()) return;
+    try {
+      await addComment(postId, commentInput.trim());
+      setCommentInput('');
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  return (
+    <View style={styles.postCard}>
+      {/* Post Header */}
+      <View style={styles.postHeader}>
+        <TouchableOpacity 
+          style={{ flexDirection: 'row', flex: 1, alignItems: 'center' }}
+          onPress={() => navigation.navigate('UserProfile', { userId: postUser.id || postUser._id })}
+        >
+          {postUser.avatar ? (
+            <Image source={{ uri: postUser.avatar }} style={styles.postAvatar} />
+          ) : (
+            <View style={[styles.postAvatar, styles.avatarPlaceholder]}>
+              <Text style={styles.avatarText}>
+                {postUser.name ? postUser.name[0].toUpperCase() : '?'}
+              </Text>
+            </View>
+          )}
+          <View style={styles.postHeaderInfo}>
+            <Text style={styles.postAuthor}>{postUser.name || 'Unknown User'}</Text>
+            <Text style={styles.postTime}>
+              {new Date(item.createdAt).toLocaleDateString()} at{' '}
+              {new Date(item.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+            </Text>
+          </View>
+        </TouchableOpacity>
+        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+          {currentUserId === (postUser.id || postUser._id) ? (
+            <>
+              <TouchableOpacity
+                style={{ padding: spacing.xs, marginRight: spacing.sm }}
+                onPress={() => handleStartEditPost(item)}
+              >
+                <Ionicons name="create-outline" size={20} color={colors.primary} />
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={{ padding: spacing.xs }}
+                onPress={() => handleDeletePost(postId)}
+              >
+                <Ionicons name="trash-outline" size={20} color={colors.danger} />
+              </TouchableOpacity>
+            </>
+          ) : (
+            <TouchableOpacity
+              style={{ padding: spacing.xs }}
+              onPress={() => onReport && onReport('post', postId)}
+            >
+              <Ionicons name="flag-outline" size={20} color={colors.textSoft} />
+            </TouchableOpacity>
+          )}
+        </View>
+      </View>
+
+      {/* Post Content */}
+      {item.content ? <ExpandableText text={item.content} style={styles.postContent} /> : null}
+
+      {/* Post Images or single Image */}
+      {item.images && item.images.length > 0 ? (
+        <PostImagesCarousel images={item.images} />
+      ) : item.image ? (
+        <Image source={{ uri: item.image }} style={styles.postImage} contentFit="contain" />
+      ) : null}
+
+      {/* Shared Post Container */}
+      {item.originalPost ? (
+        <View style={styles.sharedPostContainer}>
+          <View style={styles.postHeader}>
+            {item.originalPost.user?.avatar ? (
+              <Image source={{ uri: item.originalPost.user.avatar }} style={styles.sharedAvatar} />
+            ) : (
+              <View style={[styles.sharedAvatar, styles.avatarPlaceholder]}>
+                <Text style={styles.avatarText}>
+                  {item.originalPost.user?.name ? item.originalPost.user.name[0].toUpperCase() : '?'}
+                </Text>
+              </View>
+            )}
+            <View style={styles.postHeaderInfo}>
+              <Text style={styles.sharedAuthor}>{item.originalPost.user?.name || 'Shared User'}</Text>
+              <Text style={styles.postTime}>
+                {new Date(item.originalPost.createdAt).toLocaleDateString()}
+              </Text>
+            </View>
+          </View>
+          {item.originalPost.content ? (
+            <ExpandableText text={item.originalPost.content} style={styles.sharedContent} />
+          ) : null}
+          {item.originalPost.images && item.originalPost.images.length > 0 ? (
+            <PostImagesCarousel images={item.originalPost.images} />
+          ) : item.originalPost.image ? (
+            <Image source={{ uri: item.originalPost.image }} style={styles.sharedImage} contentFit="contain" />
+          ) : null}
+        </View>
+      ) : null}
+
+      {/* Counters */}
+      <View style={styles.countersRow}>
+        <TouchableOpacity
+          style={styles.counterItem}
+          disabled={reactionsList.length === 0}
+          onPress={() => setReactedUsersModalData(reactionsList)}
+        >
+          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+            {uniqueEmojis.slice(0, 3).map((emoji, i) => (
+              <Text key={i} style={[styles.reactionMiniEmoji, { marginLeft: i > 0 ? -4 : 0 }]}>
+                {emoji}
+              </Text>
+            ))}
+            <Text style={styles.counterText}>
+              {reactionsList.length > 0 ? ` ${reactionsList.length}` : ' 0'}
+            </Text>
+          </View>
+        </TouchableOpacity>
+        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+          <Text style={styles.counterText}>{commentsList.length} Comments</Text>
+          <Text style={[styles.counterText, { marginLeft: 10 }]}>
+            {item.shares ? item.shares.length : 0} Shares
+          </Text>
+        </View>
+      </View>
+
+      {/* Inline Reaction Picker Popover */}
+      {reactionPickerPostId === postId && (
+        <View style={styles.reactionPickerContainer}>
+          {REACTION_TYPES.map((reaction) => (
+            <TouchableOpacity
+              key={reaction.type}
+              style={styles.reactionPickerEmojiBtn}
+              onPress={() => handleReactionSelect(reaction.type)}
+            >
+              <Text style={styles.reactionPickerEmoji}>{reaction.emoji}</Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+      )}
+
+      {/* Action Buttons */}
+      <View style={styles.actionsBar}>
+        <TouchableOpacity
+          style={styles.actionBtn}
+          onLongPress={() => setReactionPickerPostId(postId)}
+          onPress={() => {
+            if (activeReaction) {
+              handleReactionSelect(activeReaction.type);
+            } else {
+              handleReactionSelect('like');
+            }
+          }}
+        >
+          {activeReaction ? (
+            <Text style={{ fontSize: 16 }}>{activeReaction.emoji}</Text>
+          ) : (
+            <Ionicons name="thumbs-up-outline" size={20} color="#666" />
+          )}
+          <Text
+            style={[
+              styles.actionBtnText,
+              activeReaction && { color: activeReaction.color, fontWeight: 'bold' }
+            ]}
+          >
+            {activeReaction ? activeReaction.label : 'Like'}
+          </Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={styles.actionBtn}
+          onPress={() => setIsCommentsVisible(!isCommentsVisible)}
+        >
+          <Ionicons name="chatbubble-outline" size={20} color="#666" />
+          <Text style={styles.actionBtnText}>Comment</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity style={styles.actionBtn} onPress={() => handleShare(postId)}>
+          <Ionicons name="share-social-outline" size={20} color="#666" />
+          <Text style={styles.actionBtnText}>Share</Text>
+        </TouchableOpacity>
+      </View>
+
+      {/* Inline Comments Section */}
+      {isCommentsVisible && (
+        <View style={styles.commentsSection}>
+          {commentsList.map((comm, idx) => {
+            const commId = comm.id || comm._id;
+            const commReactions = comm.reactions || [];
+            const userCommReact = commReactions.find(r => (r.user?._id || r.user?.id || r.user) === currentUserId);
+            const activeCommReact = REACTION_TYPES.find(rt => rt.type === userCommReact?.type);
+            
+            return (
+              <View key={commId || idx} style={styles.commentContainer}>
+                <View style={styles.commentItem}>
+                  <TouchableOpacity
+                    onPress={() => navigation.navigate('UserProfile', { userId: comm.user?.id || comm.user?._id })}
+                  >
+                    {comm.user?.avatar ? (
+                      <Image source={{ uri: comm.user.avatar }} style={styles.commentAvatar} />
+                    ) : (
+                      <View style={[styles.commentAvatar, styles.avatarPlaceholder]}>
+                        <Text style={[styles.avatarText, { fontSize: 10 }]}>
+                          {comm.user?.name ? comm.user.name[0].toUpperCase() : '?'}
+                        </Text>
+                      </View>
+                    )}
+                  </TouchableOpacity>
+                  <View style={styles.commentBubble}>
+                    <TouchableOpacity
+                      onPress={() => navigation.navigate('UserProfile', { userId: comm.user?.id || comm.user?._id })}
+                    >
+                      <Text style={styles.commentAuthor}>{comm.user?.name || 'User'}</Text>
+                    </TouchableOpacity>
+                    <Text style={styles.commentText}>{comm.text}</Text>
+                    
+                    {/* Mini comment reactions list */}
+                    {commReactions.length > 0 && (
+                      <View style={styles.commentReactionsBadge}>
+                         {commReactions.slice(0, 3).map((r, i) => (
+                          <Text key={i} style={{ fontSize: 10 }}>
+                            {REACTION_TYPES.find(rt => rt.type === r.type)?.emoji}
+                          </Text>
+                        ))}
+                        <Text style={styles.commentReactionsBadgeText}>{commReactions.length}</Text>
+                      </View>
+                    )}
+                  </View>
+                </View>
+
+                {/* Comment interaction buttons */}
+                <View style={styles.commentActionRow}>
+                  <TouchableOpacity
+                    onLongPress={() => setReactionPickerCommentId(commId)}
+                    onPress={() => {
+                      if (activeCommReact) {
+                        handleCommentReactionSelect(commId, activeCommReact.type);
+                      } else {
+                        handleCommentReactionSelect(commId, 'like');
+                      }
+                    }}
+                  >
+                    <Text style={[
+                      styles.commentActionText,
+                      activeCommReact && { color: activeCommReact.color, fontWeight: 'bold' }
+                    ]}>
+                      {activeCommReact ? `${activeCommReact.emoji} ${activeCommReact.label}` : 'React'}
+                    </Text>
+                  </TouchableOpacity>
+                  
+                  {/* Inline Picker popover inside comment */}
+                  {reactionPickerCommentId === commId && (
+                    <View style={styles.commentReactionPicker}>
+                      {REACTION_TYPES.map((reaction) => (
+                        <TouchableOpacity
+                          key={reaction.type}
+                          style={styles.commentReactionPickerEmojiBtn}
+                          onPress={() => handleCommentReactionSelect(commId, reaction.type)}
+                        >
+                          <Text style={styles.commentReactionPickerEmoji}>{reaction.emoji}</Text>
+                        </TouchableOpacity>
+                      ))}
+                    </View>
+                  )}
+                </View>
+              </View>
+            );
+          })}
+
+          {/* Comment Input */}
+          <View style={styles.commentInputRow}>
+            <TextInput
+              style={styles.commentInput}
+              placeholder="Write a comment..."
+              placeholderTextColor="#999"
+              value={commentInput}
+              onChangeText={setCommentInput}
+            />
+            <TouchableOpacity
+              style={styles.commentSendBtn}
+              onPress={handleAddCommentSubmit}
+            >
+              <Ionicons name="send" size={16} color="#fff" />
+            </TouchableOpacity>
+          </View>
+        </View>
+      )}
+    </View>
+  );
+});
+
+// ----------------------------------------------------
 export default function FeedScreen({ navigation }) {
   const { user } = useAuthStore();
-  const {
-    posts,
-    stories,
-    suggestions,
-    fetchPosts,
-    fetchStories,
-    fetchSuggestions,
-    createPost,
-    editPost,
-    deletePost,
-    toggleLikePost,
-    toggleReactionComment,
-    addComment,
-    sharePost,
-    createStory,
-    viewStory,
-    sendFriendRequest,
-    isLoadingPosts,
-    isLoadingStories,
-    isLoadingSuggestions,
-    hasMorePosts,
-  } = useChatStore();
+  const posts = useChatStore(state => state.posts);
+  const stories = useChatStore(state => state.stories);
+  const suggestions = useChatStore(state => state.suggestions);
+  const fetchPosts = useChatStore(state => state.fetchPosts);
+  const fetchStories = useChatStore(state => state.fetchStories);
+  const fetchSuggestions = useChatStore(state => state.fetchSuggestions);
+  const createPost = useChatStore(state => state.createPost);
+  const editPost = useChatStore(state => state.editPost);
+  const deletePost = useChatStore(state => state.deletePost);
+  const createStory = useChatStore(state => state.createStory);
+  const viewStory = useChatStore(state => state.viewStory);
+  const sendFriendRequest = useChatStore(state => state.sendFriendRequest);
+  const isLoadingPosts = useChatStore(state => state.isLoadingPosts);
+  const isLoadingStories = useChatStore(state => state.isLoadingStories);
+  const isLoadingSuggestions = useChatStore(state => state.isLoadingSuggestions);
+  const hasMorePosts = useChatStore(state => state.hasMorePosts);
 
   // Create Post states
   const [postText, setPostText] = useState('');
@@ -72,19 +448,10 @@ export default function FeedScreen({ navigation }) {
   const [editPostText, setEditPostText] = useState('');
   const [isEditing, setIsEditing] = useState(false);
 
-  // Active comment text inputs by post ID: { [postId]: text }
-  const [commentInputs, setCommentInputs] = useState({});
-  // Toggled post comment visibility: { [postId]: boolean }
-  const [visibleComments, setVisibleComments] = useState({});
-
   // Story Viewer Modal states
   const [activeStoryGroup, setActiveStoryGroup] = useState(null); // { user, stories }
   const [activeStoryIndex, setActiveStoryIndex] = useState(0);
   const [isCreatingStory, setIsCreatingStory] = useState(false);
-
-  // Inline Reaction Picker states
-  const [reactionPickerPostId, setReactionPickerPostId] = useState(null);
-  const [reactionPickerCommentId, setReactionPickerCommentId] = useState(null);
 
   // Modals for viewer/reactant lists
   const [reactedUsersModalData, setReactedUsersModalData] = useState(null);
@@ -156,11 +523,16 @@ export default function FeedScreen({ navigation }) {
     });
   };
 
+  const lastFetchedRef = useRef(0);
   useFocusEffect(
     useCallback(() => {
-      fetchPosts(1, 15);
-      fetchStories();
-      fetchSuggestions();
+      const now = Date.now();
+      if (now - lastFetchedRef.current > 30000) { // Only refetch if > 30s stale
+        fetchPosts(1, 15);
+        fetchStories();
+        fetchSuggestions();
+        lastFetchedRef.current = now;
+      }
     }, [])
   );
 
@@ -335,38 +707,8 @@ export default function FeedScreen({ navigation }) {
     }
   };
 
-  // Trigger post reaction
-  const handleReactionSelect = async (postId, reactionType) => {
-    try {
-      await toggleLikePost(postId, reactionType);
-      setReactionPickerPostId(null);
-    } catch (err) {
-      console.error(err);
-    }
-  };
 
-  // Trigger comment reaction
-  const handleCommentReactionSelect = async (postId, commentId, reactionType) => {
-    try {
-      await toggleReactionComment(postId, commentId, reactionType);
-      setReactionPickerCommentId(null);
-    } catch (err) {
-      console.error(err);
-    }
-  };
 
-  // Submit comment
-  const handleAddCommentSubmit = async (postId) => {
-    const text = commentInputs[postId];
-    if (!text || !text.trim()) return;
-
-    try {
-      await addComment(postId, text.trim());
-      setCommentInputs({ ...commentInputs, [postId]: '' });
-    } catch (err) {
-      showPremiumAlert('Comment Failed', 'Could not add comment');
-    }
-  };
 
   // Share/repost post
   const handleShare = (postId) => {
@@ -383,46 +725,6 @@ export default function FeedScreen({ navigation }) {
           showPremiumAlert('Share Failed', 'Could not share post');
         }
       }
-    );
-  };
-
-  // Render post image slider/carousel
-  const PostImagesCarousel = ({ images }) => {
-    const [activeIndex, setActiveIndex] = useState(0);
-    if (!images || images.length === 0) return null;
-    if (images.length === 1) {
-      return <Image source={{ uri: images[0] }} style={styles.postImage} resizeMode="cover" />;
-    }
-    return (
-      <View style={styles.carouselContainer}>
-        <ScrollView
-          horizontal
-          pagingEnabled
-          showsHorizontalScrollIndicator={false}
-          onScroll={(e) => {
-            const slide = Math.round(e.nativeEvent.contentOffset.x / (width - 20));
-            if (slide !== activeIndex) {
-              setActiveIndex(slide);
-            }
-          }}
-          scrollEventThrottle={16}
-        >
-          {images.map((img, idx) => (
-            <Image key={idx} source={{ uri: img }} style={styles.carouselImage} resizeMode="cover" />
-          ))}
-        </ScrollView>
-        <View style={styles.paginationDots}>
-          {images.map((_, idx) => (
-            <View
-              key={idx}
-              style={[
-                styles.paginationDot,
-                activeIndex === idx ? styles.paginationDotActive : styles.paginationDotInactive
-              ]}
-            />
-          ))}
-        </View>
-      </View>
     );
   };
 
@@ -518,13 +820,13 @@ export default function FeedScreen({ navigation }) {
         </View>
 
         {/* Post Content */}
-        {item.content ? <Text style={styles.postContent}>{item.content}</Text> : null}
+        {item.content ? <ExpandableText text={item.content} style={styles.postContent} /> : null}
 
         {/* Post Images or single Image */}
         {item.images && item.images.length > 0 ? (
           <PostImagesCarousel images={item.images} />
         ) : item.image ? (
-          <Image source={{ uri: item.image }} style={styles.postImage} resizeMode="cover" />
+          <Image source={{ uri: item.image }} style={styles.postImage} resizeMode="contain" />
         ) : null}
 
         {/* Shared Post Container */}
@@ -548,12 +850,12 @@ export default function FeedScreen({ navigation }) {
               </View>
             </View>
             {item.originalPost.content ? (
-              <Text style={styles.sharedContent}>{item.originalPost.content}</Text>
+              <ExpandableText text={item.originalPost.content} style={styles.sharedContent} />
             ) : null}
             {item.originalPost.images && item.originalPost.images.length > 0 ? (
               <PostImagesCarousel images={item.originalPost.images} />
             ) : item.originalPost.image ? (
-              <Image source={{ uri: item.originalPost.image }} style={styles.sharedImage} resizeMode="cover" />
+              <Image source={{ uri: item.originalPost.image }} style={styles.sharedImage} resizeMode="contain" />
             ) : null}
           </View>
         ) : null}
@@ -751,6 +1053,15 @@ export default function FeedScreen({ navigation }) {
     );
   };
 
+  // ─── Report Modal State ──────────────────────────────────
+  const [reportModalVisible, setReportModalVisible] = useState(false);
+  const [reportTarget, setReportTarget] = useState({ type: 'post', id: null, name: '' });
+
+  const handleReport = (type, id, name) => {
+    setReportTarget({ type, id, name: name || type });
+    setReportModalVisible(true);
+  };
+
   const isMyStoryGroup = activeStoryGroup?.user?._id === user?._id || activeStoryGroup?.user?.id === user?._id;
 
   return (
@@ -761,7 +1072,24 @@ export default function FeedScreen({ navigation }) {
       >
         <FlatList
           data={posts}
-          renderItem={renderPostItem}
+          removeClippedSubviews={true}
+          maxToRenderPerBatch={10}
+          windowSize={5}
+          renderItem={({ item }) => (
+            <PostCard 
+              item={item} 
+              currentUserId={user?.id || user?._id}
+              navigation={navigation}
+              handleStartEditPost={handleStartEditPost}
+              handleDeletePost={handleDeletePost}
+              handleShare={handleShare}
+              setReactedUsersModalData={setReactedUsersModalData}
+              onReport={(type, id) => {
+                setReportTarget({ type, id, name: item.user?.name || 'post' });
+                setReportModalVisible(true);
+              }}
+            />
+          )}
           keyExtractor={(item) => item.id || item._id}
           showsVerticalScrollIndicator={false}
           contentContainerStyle={{ paddingBottom: 120 }}
@@ -999,6 +1327,15 @@ export default function FeedScreen({ navigation }) {
             ) : null}
 
             {/* Seen-by views list triggers (only for current user's story) */}
+            {!isMyStoryGroup && (
+              <TouchableOpacity
+                style={[styles.seenByContainer, { bottom: 90, backgroundColor: 'rgba(185, 130, 152, 0.7)' }]}
+                onPress={() => handleReport('story', activeStoryGroup.stories[activeStoryIndex]._id, activeStoryGroup.user.name)}
+              >
+                <Ionicons name="flag-outline" size={18} color="#fff" style={{ marginRight: 6 }} />
+                <Text style={styles.seenByText}>Report Story</Text>
+              </TouchableOpacity>
+            )}
             {isMyStoryGroup && (
               <TouchableOpacity
                 style={styles.seenByContainer}
@@ -1266,6 +1603,15 @@ export default function FeedScreen({ navigation }) {
           </View>
         </View>
       </Modal>
+
+      {/* Report Modal */}
+      <ReportModal
+        visible={reportModalVisible}
+        onClose={() => setReportModalVisible(false)}
+        targetType={reportTarget.type}
+        targetId={reportTarget.id}
+        targetName={reportTarget.name}
+      />
     </SafeAreaView>
   );
 }
@@ -1546,7 +1892,8 @@ const styles = StyleSheet.create({
   },
   postImage: {
     width: '100%',
-    height: 250,
+    aspectRatio: 4 / 3,
+    backgroundColor: '#000',
     borderRadius: radii.small,
     marginBottom: spacing.md,
   },
@@ -1558,7 +1905,8 @@ const styles = StyleSheet.create({
   },
   carouselImage: {
     width: width - 50,
-    height: 250,
+    aspectRatio: 4 / 3,
+    backgroundColor: '#000',
     borderRadius: radii.small,
     marginRight: spacing.sm,
   },
@@ -1609,11 +1957,11 @@ const styles = StyleSheet.create({
   },
   sharedImage: {
     width: '100%',
-    height: 180,
+    aspectRatio: 4 / 3,
+    backgroundColor: '#000',
     borderRadius: radii.small,
+    marginTop: spacing.md,
   },
-
-  // Post Action Row
   countersRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',

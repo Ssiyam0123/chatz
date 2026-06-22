@@ -45,7 +45,13 @@ api.interceptors.response.use(
     }
     return response;
   },
-  (error) => Promise.reject(error)
+  async (error) => {
+    if (error.response && error.response.status === 401) {
+      const { useAuthStore } = await import('../stores/authStore');
+      useAuthStore.getState().logout();
+    }
+    return Promise.reject(error);
+  }
 );
 
 // ─── Chat ────────────────────────────────────────────────────────────────────
@@ -61,9 +67,19 @@ export const createGroup = (name, memberIds, avatar) =>
 export const getGroupMessages = (groupId) => api.get(`/groups/${groupId}/messages`);
 export const addGroupMembers = (groupId, memberIds) =>
   api.post('/groups/add-members', { groupId, memberIds });
+export const updateGroup = (groupId, name, avatar) =>
+  api.put(`/groups/${groupId}`, { name, avatar });
+export const removeGroupMembers = (groupId, memberIds) =>
+  api.post('/groups/remove-members', { groupId, memberIds });
+export const leaveGroup = (groupId) =>
+  api.post(`/groups/${groupId}/leave`);
 
 // ─── Friends ─────────────────────────────────────────────────────────────────
 export const getFriends = () => api.get('/friends');
+
+// ─── Reports ─────────────────────────────────────────────────────────────────
+export const createReport = (targetType, targetId, reason, details) =>
+  api.post('/reports', { targetType, targetId, reason, details });
 
 // ─── Upload ──────────────────────────────────────────────────────────────────
 export const uploadImage = async (file) => {

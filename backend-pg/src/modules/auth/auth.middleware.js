@@ -6,6 +6,25 @@ import pool from '../../config/pgDatabase.js';
 // In a multi-server deployment, swap this for a Redis SET.
 const _revoked = new Set();
 
+/**
+ * Middleware factory that restricts access to specified roles.
+ * Must be used after `protect` middleware.
+ *
+ * Usage:
+ *   router.delete('/:id', protect, restrictTo('admin', 'super_admin'), deleteSomething);
+ */
+export const restrictTo = (...roles) => {
+  return (req, res, next) => {
+    if (!req.user || !req.user.role) {
+      return next(AppError.unauthorized('Not authenticated'));
+    }
+    if (!roles.includes(req.user.role)) {
+      return next(AppError.forbidden('You do not have permission to perform this action'));
+    }
+    next();
+  };
+};
+
 export const revokeToken = (tokenId, ttlMs = 30 * 24 * 60 * 60 * 1000) => {
   _revoked.add(tokenId);
   setTimeout(() => _revoked.delete(tokenId), ttlMs);
@@ -32,7 +51,7 @@ export const protect = async (req, res, next) => {
     // Only hits the DB when the JWT payload includes an `iat` claim, which is
     // always the case for tokens minted by our `signToken` helper.
     const { rows } = await pool.query(
-      'SELECT id, password_changed_at as "passwordChangedAt" FROM users WHERE id = $1',
+      'SELECT id, name, role, banned_at, suspended_until, password_changed_at as "passwordChangedAt" FROM users WHERE id = $1',
       [decoded.id]
     );
     const user = rows[0];
@@ -50,7 +69,17 @@ export const protect = async (req, res, next) => {
       }
     }
 
-    req.user = { id: decoded.id, email: decoded.email };
+    // Check if user is banned
+    if (user.banned_at) {
+      return next(AppError.forbidden('Your account has been banned'));
+    }
+
+    // Check if user is suspended
+    if (user.suspended_at && (!user.suspended_until || new Date(user.suspended_until) > new Date())) {
+      return next(AppError.forbidden('Your account has been temporarily suspended'));
+    }
+
+    req.user = { id: user.id, name: user.name, role: user.role };
     next();
   } catch (err) {
     if (err.name === 'TokenExpiredError') {

@@ -136,6 +136,25 @@ export const registerPublicKey = async (req, res) => {
   }
 };
 
+export const getUserPublicKey = async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const { rows } = await pool.query(
+      'SELECT public_key as "publicKey" FROM users WHERE id = $1',
+      [userId]
+    );
+    if (!rows[0]) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+    res.status(200).json({
+      status: 'success',
+      data: { publicKey: rows[0].publicKey },
+    });
+  } catch (err) {
+    res.status(500).json({ status: 'error', message: err.message });
+  }
+};
+
 export const getUserById = async (req, res) => {
   try {
     const { userId } = req.params;

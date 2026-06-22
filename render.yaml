@@ -24,3 +24,17 @@ services:
         sync: false
       - key: CLOUDINARY_API_SECRET
         sync: false
+
+  - type: web
+    name: chatz-admin
+    runtime: node
+    repo: https://github.com/Ssiyam0123/chatz
+    branch: main
+    rootDir: admin
+    buildCommand: npm install && npm run build
+    startCommand: npm start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: NEXT_PUBLIC_API_URL
+        sync: false # URL of the chatz-backend service

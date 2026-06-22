@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useMemo, useCallback } from 'react';
+import React, { useEffect, useState, useMemo, useCallback, useRef } from 'react';
 import {
   View,
   Text,
@@ -12,13 +12,15 @@ import {
   Platform,
   StatusBar,
   ScrollView,
-  Image,
 } from 'react-native';
+import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
 import useChatStore from '../stores/chatStore';
 import { useAuthStore } from '../stores/authStore';
 import { colors, radii, spacing } from '../theme/blushDusk';
+
+const PeopleItemSeparator = () => <View style={styles.separatorLine} />;
 
 export default function PeopleScreen({ navigation }) {
   const { 
@@ -46,13 +48,18 @@ export default function PeopleScreen({ navigation }) {
   const [suggestionsPage, setSuggestionsPage] = useState(1);
   const [loadingMoreSuggestions, setLoadingMoreSuggestions] = useState(false);
 
+  const lastFetchedRef = useRef(0);
   useFocusEffect(
     useCallback(() => {
-      fetchUsers();
-      fetchFriends();
-      fetchFriendRequests();
-      fetchSuggestions(1, 15);
-      setSuggestionsPage(1);
+      const now = Date.now();
+      if (now - lastFetchedRef.current > 30000) {
+        fetchUsers();
+        fetchFriends();
+        fetchFriendRequests();
+        fetchSuggestions(1, 15);
+        setSuggestionsPage(1);
+        lastFetchedRef.current = now;
+      }
     }, [])
   );
 
@@ -186,7 +193,13 @@ export default function PeopleScreen({ navigation }) {
           onPress={() => navigation.navigate('UserProfile', { userId: item.id })}
         >
           {item.avatar ? (
-            <Image source={{ uri: item.avatar }} style={styles.avatarImage} />
+            <Image
+              source={{ uri: item.avatar }}
+              style={styles.avatarImage}
+              cachePolicy="memory-disk"
+              recyclingKey={item.avatar}
+              contentFit="cover"
+            />
           ) : (
             <View style={styles.avatar}>
               <Text style={styles.avatarText}>{(item.name || '?')[0].toUpperCase()}</Text>
@@ -333,7 +346,12 @@ export default function PeopleScreen({ navigation }) {
           keyExtractor={(item) => item.id}
           renderItem={renderUserItem}
           contentContainerStyle={styles.listContent}
-          ItemSeparatorComponent={() => <View style={styles.separator} />}
+          ItemSeparatorComponent={PeopleItemSeparator}
+          removeClippedSubviews={true}
+          maxToRenderPerBatch={10}
+          windowSize={7}
+          initialNumToRender={15}
+          updateCellsBatchingPeriod={50}
           refreshControl={
             <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />
           }
@@ -448,6 +466,7 @@ const styles = StyleSheet.create({
   userName: { fontSize: 16, fontWeight: '600', color: colors.text },
   userBio: { fontSize: 13, color: colors.textMuted, marginTop: 2, marginRight: spacing.sm },
   separator: { height: 1, backgroundColor: colors.border, marginLeft: 82 },
+  separatorLine: { height: 1, backgroundColor: colors.border, marginLeft: 82 },
   emptyContainer: { flex: 1, alignItems: 'center', marginTop: 100 },
   emptyText: { color: colors.textMuted, fontSize: 15, marginTop: spacing.sm },
   

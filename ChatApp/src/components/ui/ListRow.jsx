@@ -4,7 +4,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { colors, spacing, radii } from '../../theme/blushDusk';
 import Avatar from './Avatar';
 
-export default function ListRow({
+const ListRow = React.memo(({
   avatar,
   avatarName,
   title,
@@ -14,7 +14,7 @@ export default function ListRow({
   unread,
   badge,
   style,
-}) {
+}) => {
   const Content = (
     <View style={[styles.row, style]}>
       {avatar !== undefined ? (
@@ -54,7 +54,8 @@ export default function ListRow({
     return <TouchableOpacity onPress={onPress} activeOpacity={0.7}>{Content}</TouchableOpacity>;
   }
   return Content;
-}
+});
+
 
 const styles = StyleSheet.create({
   row: {
@@ -124,3 +125,5 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
 });
+
+export default ListRow;

@@ -150,6 +150,38 @@ export const getConversations = async (req, res) => {
       };
     });
 
+    // Fetch all active friends to include those with no message history yet
+    const { rows: friends } = await pool.query(
+      `SELECT u.id, u.name, u.avatar, u.public_key as "publicKey", uf.created_at as "friendshipCreatedAt"
+       FROM user_friends uf
+       JOIN users u ON uf.friend_id = u.id
+       WHERE uf.user_id = $1`,
+      [userId]
+    );
+
+    const existingPartnerIds = new Set(directConversations.map(c => c._id));
+
+    friends.forEach((friend) => {
+      if (!existingPartnerIds.has(friend.id)) {
+        directConversations.push({
+          _id: friend.id,
+          lastMessage: 'No messages yet',
+          lastMessageTime: friend.friendshipCreatedAt || new Date(0).toISOString(),
+          lastMessageImage: null,
+          lastMessageCiphertext: null,
+          lastMessageNonce: null,
+          lastMessageIsEncrypted: false,
+          userDetails: {
+            id: friend.id,
+            name: friend.name,
+            avatar: friend.avatar,
+            publicKey: friend.publicKey,
+          },
+          isGroup: false,
+        });
+      }
+    });
+
     // ─── Fetch Group Conversations ───
     const { rows: memberships } = await pool.query('SELECT group_id as "groupId" FROM group_members WHERE user_id = $1', [userId]);
     const groupIds = memberships.map((m) => m.groupId);

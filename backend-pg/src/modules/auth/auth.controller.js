@@ -24,7 +24,7 @@ export const register = asyncHandler(async (req, res) => {
   const { rows } = await pool.query(
     `INSERT INTO users (name, email, password, password_changed_at, created_at, updated_at) 
      VALUES ($1, $2, $3, NOW(), NOW(), NOW()) 
-     RETURNING id, name, email, avatar, public_key`,
+     RETURNING id, name, email, avatar, public_key, role`,
     [name, email.toLowerCase(), hashedPassword]
   );
   
@@ -39,6 +39,7 @@ export const register = asyncHandler(async (req, res) => {
       email: user.email,
       avatar: user.avatar,
       publicKey: user.public_key,
+      role: user.role,
     },
   }, 201);
 });
@@ -47,7 +48,7 @@ export const login = asyncHandler(async (req, res) => {
   const { email, password } = req.body;
 
   const { rows } = await pool.query(
-    'SELECT id, name, email, password, avatar, public_key FROM users WHERE email = $1',
+    'SELECT id, name, email, password, avatar, public_key, role FROM users WHERE email = $1',
     [email.toLowerCase()]
   );
 
@@ -66,5 +67,6 @@ export const login = asyncHandler(async (req, res) => {
     email: user.email,
     avatar: user.avatar,
     publicKey: user.public_key,
+    role: user.role,
   });
 });

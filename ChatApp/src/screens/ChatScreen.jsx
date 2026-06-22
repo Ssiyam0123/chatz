@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import {
   View,
   Text,
@@ -12,23 +12,78 @@ import {
   SafeAreaView,
   Keyboard,
   TouchableWithoutFeedback,
-  Image,
   Alert,
   Modal,
+  RefreshControl,
 } from 'react-native';
+import { Image } from 'expo-image';
 import * as ImagePicker from 'expo-image-picker';
 import { Ionicons } from '@expo/vector-icons';
 import { useHeaderHeight } from '@react-navigation/elements';
 import { useNavigation } from '@react-navigation/native';
 import useChatStore from '../stores/chatStore';
 import { colors, radii, spacing } from '../theme/blushDusk';
+import ReportModal from '../components/ui/ReportModal';
 
 const EMPTY_ARRAY = [];
+
+
+const MessageItem = React.memo(({ item, currentUserId, onReport }) => {
+  const senderId = item.sender?._id || item.sender?.id || item.sender;
+  const isMe = senderId === currentUserId || senderId?.toString() === currentUserId;
+
+  return (
+    <View style={[styles.messageRow, isMe ? styles.myMessageRow : styles.theirMessageRow]}>
+      <View style={[styles.messageBubble, isMe ? styles.myBubble : styles.theirBubble]}>
+        {item.image && (
+          <View style={styles.imageWrapper}>
+            <Image
+              source={{ uri: item.image }}
+              style={styles.messageImage}
+              cachePolicy="memory-disk"
+              recyclingKey={item.image}
+              contentFit="cover"
+            />
+            {item.isUploading && (
+              <View style={styles.uploadingOverlay}>
+                <ActivityIndicator color="#fff" />
+                <Text style={styles.uploadingText}>Sending…</Text>
+              </View>
+            )}
+          </View>
+        )}
+        {item.text ? (
+          <Text style={[styles.messageText, isMe ? styles.myMessageText : styles.theirMessageText]}>
+            {item.text}
+          </Text>
+        ) : null}
+        <View style={styles.messageMeta}>
+          <Text style={[styles.timeText, isMe ? styles.myTime : styles.theirTime]}>
+            {item.createdAt && typeof item.createdAt !== 'undefined' && !isNaN(new Date(item.createdAt).getTime()) 
+              ? new Date(item.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+              : item.isUploading ? 'Sending...' : ''}
+          </Text>
+          {!isMe && !item.isUploading && (
+            <TouchableOpacity
+              onPress={() => onReport(item)}
+              style={styles.reportMsgBtn}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            >
+              <Ionicons name="flag-outline" size={12} color={colors.textSoft} />
+            </TouchableOpacity>
+          )}
+        </View>
+      </View>
+    </View>
+  );
+});
 
 export default function ChatScreen({ route }) {
   const { userId: partnerId, userName } = route.params;
   const [inputText, setInputText] = useState('');
   const [modalVisible, setModalVisible] = useState(false);
+  const [reportModalVisible, setReportModalVisible] = useState(false);
+  const [reportTarget, setReportTarget] = useState(null);
   const flatListRef = useRef(null);
   const headerHeight = useHeaderHeight();
   const navigation = useNavigation();
@@ -80,11 +135,11 @@ export default function ChatScreen({ route }) {
   useEffect(() => {
     navigation.setOptions({
       headerRight: () => (
-        <View style={{ flexDirection: 'row' }}>
-          <TouchableOpacity onPress={() => setModalVisible(true)} style={{ marginRight: 12 }}>
+        <View style={styles.headerRight}>
+          <TouchableOpacity onPress={() => setModalVisible(true)} style={styles.headerBtn}>
             <Ionicons name="call-outline" size={22} color={colors.primary} />
           </TouchableOpacity>
-          <TouchableOpacity onPress={() => setModalVisible(true)} style={{ marginRight: 12 }}>
+          <TouchableOpacity onPress={() => setModalVisible(true)} style={styles.headerBtn}>
             <Ionicons name="videocam-outline" size={22} color={colors.primary} />
           </TouchableOpacity>
         </View>
@@ -92,13 +147,8 @@ export default function ChatScreen({ route }) {
     });
   }, [navigation]);
 
-  useEffect(() => {
-    if (messages.length > 0 && flatListRef.current) {
-      setTimeout(() => {
-        flatListRef.current?.scrollToEnd({ animated: true });
-      }, 100);
-    }
-  }, [messages.length]);
+  // Reverse messages for inverted FlatList (newest first)
+  const invertedMessages = useMemo(() => [...messages].reverse(), [messages]);
 
   const handleSend = () => {
     if (!inputText.trim()) return;
@@ -124,52 +174,40 @@ export default function ChatScreen({ route }) {
     }
   };
 
-  const renderMessage = ({ item }) => {
-    const senderId = item.sender?._id || item.sender?.id || item.sender;
-    const isMe = senderId === currentUserId || senderId?.toString() === currentUserId;
+  const handleReportMessage = useCallback((message) => {
+    setReportTarget({ type: 'message', id: message.id || message._id });
+    setReportModalVisible(true);
+  }, []);
 
-    return (
-      <View style={[styles.messageRow, isMe ? styles.myMessageRow : styles.theirMessageRow]}>
-        <View style={[styles.messageBubble, isMe ? styles.myBubble : styles.theirBubble]}>
-          {item.image && (
-            <View style={styles.imageWrapper}>
-              <Image 
-                source={{ uri: item.image }} 
-                style={styles.messageImage} 
-              />
-              {item.isUploading && (
-                <View style={styles.uploadingOverlay}>
-                  <ActivityIndicator color="#fff" />
-                  <Text style={styles.uploadingText}>Sending…</Text>
-                </View>
-              )}
-            </View>
-          )}
-          {item.text ? (
-            <Text style={[styles.messageText, isMe ? styles.myMessageText : styles.theirMessageText]}>
-              {item.text}
-            </Text>
-          ) : null}
-          <Text style={[styles.timeText, isMe ? styles.myTime : styles.theirTime]}>
-            {item.createdAt && typeof item.createdAt !== 'undefined' && !isNaN(new Date(item.createdAt).getTime()) 
-              ? new Date(item.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-              : item.isUploading ? 'Sending...' : ''}
-          </Text>
-        </View>
-      </View>
-    );
-  };
+  const renderMessage = useCallback(({ item }) => (
+    <MessageItem item={item} currentUserId={currentUserId} onReport={handleReportMessage} />
+  ), [currentUserId, handleReportMessage]);
+
+  const handleLoadOlderMessages = useCallback(() => {
+    if (!isFriend || messages.length === 0) return;
+    const oldestMessage = messages[0]; // messages are chronological, so first = oldest
+    if (oldestMessage?.createdAt) {
+      fetchChatHistory(partnerId, oldestMessage.createdAt);
+    }
+  }, [isFriend, messages, partnerId, fetchChatHistory]);
 
   const ChatContent = (
     <View style={styles.inner}>
       <FlatList
         ref={flatListRef}
-        data={messages}
-        keyExtractor={(item) => item.id || item._id || item.clientId || Math.random().toString()}
+        data={invertedMessages}
+        inverted
+        keyExtractor={(item, index) => item.id || item._id || item.clientId || `msg-${index}`}
         renderItem={renderMessage}
+        removeClippedSubviews={true}
+        maxToRenderPerBatch={10}
+        windowSize={5}
+        initialNumToRender={15}
         contentContainerStyle={styles.messagesList}
-        onContentSizeChange={() => flatListRef.current?.scrollToEnd({ animated: true })}
-        onLayout={() => flatListRef.current?.scrollToEnd({ animated: true })}
+        keyboardDismissMode="interactive"
+        keyboardShouldPersistTaps="handled"
+        onEndReached={handleLoadOlderMessages}
+        onEndReachedThreshold={0.3}
         ListEmptyComponent={
           isFriend ? (
             <Text style={styles.emptyText}>Start a conversation with {userName}</Text>
@@ -256,11 +294,7 @@ export default function ChatScreen({ route }) {
           behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
           keyboardVerticalOffset={headerHeight + 10}
         >
-          <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
-            <View style={{ flex: 1 }}>
-              {ChatContent}
-            </View>
-          </TouchableWithoutFeedback>
+          {ChatContent}
         </KeyboardAvoidingView>
       )}
       <Modal
@@ -278,6 +312,14 @@ export default function ChatScreen({ route }) {
           </View>
         </View>
       </Modal>
+
+      <ReportModal
+        visible={reportModalVisible}
+        onClose={() => setReportModalVisible(false)}
+        targetType={reportTarget?.type}
+        targetId={reportTarget?.id}
+        targetName={`Message from ${userName}`}
+      />
     </SafeAreaView>
   );
 }
@@ -286,7 +328,9 @@ const styles = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: colors.background },
   container: { flex: 1 },
   inner: { flex: 1, backgroundColor: colors.background },
-  messagesList: { paddingHorizontal: spacing.lg, paddingBottom: 20, paddingTop: spacing.sm },
+  headerRight: { flexDirection: 'row' },
+  headerBtn: { marginRight: 12 },
+  messagesList: { paddingHorizontal: spacing.lg, paddingTop: 20, paddingBottom: spacing.sm },
   messageRow: { marginBottom: spacing.sm, flexDirection: 'row' },
   myMessageRow: { justifyContent: 'flex-end' },
   theirMessageRow: { justifyContent: 'flex-start' },
@@ -301,9 +345,11 @@ const styles = StyleSheet.create({
   messageText: { fontSize: 15, lineHeight: 21 },
   myMessageText: { color: colors.text },
   theirMessageText: { color: colors.text },
-  timeText: { fontSize: 10, marginTop: 4, alignSelf: 'flex-end' },
+  messageMeta: { flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', marginTop: 4 },
+  timeText: { fontSize: 10 },
   myTime: { color: colors.textMuted },
   theirTime: { color: colors.textSoft },
+  reportMsgBtn: { marginLeft: 6, padding: 2 },
   imageWrapper: { position: 'relative' },
   messageImage: { width: 220, height: 165, borderRadius: radii.small, marginBottom: 4, backgroundColor: colors.surfaceMuted },
   uploadingOverlay: { ...StyleSheet.absoluteFillObject, backgroundColor: colors.overlay, borderRadius: radii.small, justifyContent: 'center', alignItems: 'center' },

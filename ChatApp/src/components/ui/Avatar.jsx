@@ -1,5 +1,6 @@
 import React from 'react';
-import { View, Text, Image, StyleSheet } from 'react-native';
+import { View, Text, StyleSheet } from 'react-native';
+import { Image } from 'expo-image';
 import { colors } from '../../theme/blushDusk';
 
 const SIZES = {
@@ -10,14 +11,20 @@ const SIZES = {
   xxl: 110,
 };
 
-export default function Avatar({ uri, name, size = 'md', status, style }) {
+const Avatar = React.memo(({ uri, name, size = 'md', status, style }) => {
   const dimension = SIZES[size] || SIZES.md;
   const borderRadius = dimension / 2;
 
   return (
     <View style={[styles.wrapper, { width: dimension, height: dimension }, style]}>
       {uri ? (
-        <Image source={{ uri }} style={[styles.image, { width: dimension, height: dimension, borderRadius }]} />
+        <Image
+          source={{ uri }}
+          style={[styles.image, { width: dimension, height: dimension, borderRadius }]}
+          cachePolicy="memory-disk"
+          recyclingKey={uri}
+          contentFit="cover"
+        />
       ) : (
         <View style={[styles.placeholder, { width: dimension, height: dimension, borderRadius }]}>
           <Text style={[styles.initial, { fontSize: dimension * 0.4 }]}>
@@ -30,7 +37,7 @@ export default function Avatar({ uri, name, size = 'md', status, style }) {
       )}
     </View>
   );
-}
+});
 
 const styles = StyleSheet.create({
   wrapper: {
@@ -57,3 +64,5 @@ const styles = StyleSheet.create({
     borderColor: colors.white,
   },
 });
+
+export default Avatar;

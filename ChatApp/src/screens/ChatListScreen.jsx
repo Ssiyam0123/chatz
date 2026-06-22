@@ -1,4 +1,4 @@
-import React, { useEffect, useCallback } from 'react';
+import React, { useRef, useCallback } from 'react';
 import {
   View,
   Text,
@@ -22,13 +22,18 @@ import Avatar from '../components/ui/Avatar';
 export default function ChatListScreen({ navigation }) {
   const { conversations, fetchConversations, isLoadingUsers } = useChatStore();
 
+  const lastFetchedRef = useRef(0);
   useFocusEffect(
     useCallback(() => {
-      fetchConversations();
+      const now = Date.now();
+      if (now - lastFetchedRef.current > 30000) {
+        fetchConversations();
+        lastFetchedRef.current = now;
+      }
     }, [])
   );
 
-  const renderItem = ({ item }) => {
+  const renderItem = useCallback(({ item }) => {
     const name = item.isGroup ? item.name : item.userDetails?.name || 'Unknown User';
     const avatarUrl = item.isGroup ? item.avatar : item.userDetails?.avatar;
 
@@ -66,7 +71,7 @@ export default function ChatListScreen({ navigation }) {
         }
       />
     );
-  };
+  }, [navigation]);
 
   if (isLoadingUsers && conversations.length === 0) {
     return (
@@ -103,6 +108,11 @@ export default function ChatListScreen({ navigation }) {
         data={conversations}
         renderItem={renderItem}
         keyExtractor={(item) => item._id}
+        removeClippedSubviews={true}
+        maxToRenderPerBatch={10}
+        windowSize={7}
+        initialNumToRender={15}
+        updateCellsBatchingPeriod={50}
         ListEmptyComponent={
           <EmptyState
             icon="chatbubbles-outline"
