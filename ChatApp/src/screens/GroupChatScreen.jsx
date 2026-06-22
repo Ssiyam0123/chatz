@@ -82,11 +82,9 @@ const GroupMessageItem = React.memo(({ item, currentUserId, onReport }) => {
 
 
 export default function GroupChatScreen({ route, navigation }) {
-  const { colors, isDark, toggleTheme } = useTheme();
+    const { colors, isDark, toggleTheme } = useTheme();
   const styles = getStyles(colors);
-  const { colors, isDark, toggleTheme } = useTheme();
-  const styles = getStyles(colors);
-  const { groupId, groupName } = route.params;
+const { groupId, groupName } = route.params;
   const [inputText, setInputText] = React.useState('');
   const [reportModalVisible, setReportModalVisible] = React.useState(false);
   const [reportTarget, setReportTarget] = React.useState(null);

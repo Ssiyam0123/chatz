@@ -24,11 +24,9 @@ import { getGroupById, updateGroup, addGroupMembers, removeGroupMembers, leaveGr
 import useChatStore from '../stores/chatStore';
 
 export default function GroupDetailsScreen({ route, navigation }) {
-  const { colors, isDark, toggleTheme } = useTheme();
+    const { colors, isDark, toggleTheme } = useTheme();
   const styles = getStyles(colors);
-  const { colors, isDark, toggleTheme } = useTheme();
-  const styles = getStyles(colors);
-  const { groupId } = route.params;
+const { groupId } = route.params;
   const [group, setGroup] = useState(null);
   const [loading, setLoading] = useState(true);
   const [updating, setUpdating] = useState(false);

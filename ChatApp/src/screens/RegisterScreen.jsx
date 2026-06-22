@@ -17,11 +17,9 @@ import { radii, spacing } from '../theme/blushDusk';
 import { useTheme } from '../theme/ThemeContext';
 
 export default function RegisterScreen({ navigation }) {
-  const { colors, isDark, toggleTheme } = useTheme();
+    const { colors, isDark, toggleTheme } = useTheme();
   const styles = getStyles(colors);
-  const { colors, isDark, toggleTheme } = useTheme();
-  const styles = getStyles(colors);
-  const [name, setName] = useState("");
+const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPass, setShowPass] = useState(false);

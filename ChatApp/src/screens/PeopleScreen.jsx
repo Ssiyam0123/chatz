@@ -24,11 +24,9 @@ import { useTheme } from '../theme/ThemeContext';
 const PeopleItemSeparator = () => <View style={styles.separatorLine} />;
 
 export default function PeopleScreen({ navigation }) {
-  const { colors, isDark, toggleTheme } = useTheme();
+    const { colors, isDark, toggleTheme } = useTheme();
   const styles = getStyles(colors);
-  const { colors, isDark, toggleTheme } = useTheme();
-  const styles = getStyles(colors);
-  const { 
+const { 
     users, 
     isLoadingUsers, 
     fetchUsers,

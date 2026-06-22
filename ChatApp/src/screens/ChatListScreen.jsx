@@ -21,11 +21,9 @@ import ListRow from '../components/ui/ListRow';
 import Avatar from '../components/ui/Avatar';
 
 export default function ChatListScreen({ navigation }) {
-  const { colors, isDark, toggleTheme } = useTheme();
+    const { colors, isDark, toggleTheme } = useTheme();
   const styles = getStyles(colors);
-  const { colors, isDark, toggleTheme } = useTheme();
-  const styles = getStyles(colors);
-  const { conversations, fetchConversations, isLoadingUsers } = useChatStore();
+const { conversations, fetchConversations, isLoadingUsers } = useChatStore();
 
   const lastFetchedRef = useRef(0);
   useFocusEffect(

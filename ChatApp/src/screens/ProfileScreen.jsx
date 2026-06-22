@@ -44,11 +44,9 @@ const REACTION_TYPES = [
 ];
 
 export default function ProfileScreen({ route, navigation }) {
-  const { colors, isDark, toggleTheme } = useTheme();
+    const { colors, isDark, toggleTheme } = useTheme();
   const styles = getStyles(colors);
-  const { colors, isDark, toggleTheme } = useTheme();
-  const styles = getStyles(colors);
-  const { user, updateUser, logout } = useAuthStore();
+const { user, updateUser, logout } = useAuthStore();
   const {
     userPosts,
     friends,

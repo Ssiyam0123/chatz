@@ -80,11 +80,9 @@ const MessageItem = React.memo(({ item, currentUserId, onReport }) => {
 });
 
 export default function ChatScreen({ route }) {
-  const { colors, isDark, toggleTheme } = useTheme();
+    const { colors, isDark, toggleTheme } = useTheme();
   const styles = getStyles(colors);
-  const { colors, isDark, toggleTheme } = useTheme();
-  const styles = getStyles(colors);
-  const { userId: partnerId, userName } = route.params;
+const { userId: partnerId, userName } = route.params;
   const [inputText, setInputText] = useState('');
   const [modalVisible, setModalVisible] = useState(false);
   const [reportModalVisible, setReportModalVisible] = useState(false);

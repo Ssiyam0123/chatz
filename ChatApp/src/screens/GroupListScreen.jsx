@@ -18,11 +18,9 @@ import ListRow from '../components/ui/ListRow';
 import EmptyState from '../components/ui/EmptyState';
 
 export default function GroupListScreen({ navigation }) {
-  const { colors, isDark, toggleTheme } = useTheme();
+    const { colors, isDark, toggleTheme } = useTheme();
   const styles = getStyles(colors);
-  const { colors, isDark, toggleTheme } = useTheme();
-  const styles = getStyles(colors);
-  const [groups, setGroups] = useState([]);
+const [groups, setGroups] = useState([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {

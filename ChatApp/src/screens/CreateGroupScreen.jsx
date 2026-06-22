@@ -8,11 +8,9 @@ import { useTheme } from '../theme/ThemeContext';
 import useChatStore from '../stores/chatStore';
 
 export default function CreateGroupScreen({ navigation }) {
-  const { colors, isDark, toggleTheme } = useTheme();
+    const { colors, isDark, toggleTheme } = useTheme();
   const styles = getStyles(colors);
-  const { colors, isDark, toggleTheme } = useTheme();
-  const styles = getStyles(colors);
-  const [groupName, setGroupName] = useState('');
+const [groupName, setGroupName] = useState('');
   const [users, setUsers] = useState([]);
   const [selectedUsers, setSelectedUsers] = useState({});
   const [loading, setLoading] = useState(true);
