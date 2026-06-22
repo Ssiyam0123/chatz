@@ -35,8 +35,9 @@ export function Badge({ className, variant, ...props }: BadgeProps) {
 /* ── Status / priority / role helpers (replace the old hardcoded maps) ── */
 
 export function StatusBadge({ status }: { status: string }) {
+  const safeStatus = status || "";
   const variant: BadgeProps["variant"] = (() => {
-    switch (status) {
+    switch (safeStatus) {
       case "open":
         return "warning";
       case "in_review":
@@ -53,7 +54,7 @@ export function StatusBadge({ status }: { status: string }) {
         return "neutral";
     }
   })();
-  return <Badge variant={variant}>{(status || "").replace(/_/g, " ")}</Badge>;
+  return <Badge variant={variant}>{safeStatus.replace(/_/g, " ")}</Badge>;
 }
 
 export function PriorityBadge({ priority }: { priority: string }) {
