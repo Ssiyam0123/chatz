@@ -27,7 +27,7 @@ export const register = asyncHandler(async (req, res) => {
      RETURNING id, name, email, avatar, public_key, role`,
     [name, email.toLowerCase(), hashedPassword]
   );
-  
+
   const user = rows[0];
   const token = signToken(user.id);
 

@@ -79,6 +79,8 @@ const MessageItem = React.memo(({ item, currentUserId, onReport }) => {
   );
 });
 
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+
 export default function ChatScreen({ route }) {
     const { colors: themeColors, isDark, toggleTheme } = useTheme();
   colors = themeColors;
@@ -91,6 +93,7 @@ const { userId: partnerId, userName } = route.params;
   const flatListRef = useRef(null);
   const headerHeight = useHeaderHeight();
   const navigation = useNavigation();
+  const insets = useSafeAreaInsets();
 
   const user = useChatStore((state) => state.user);
   const currentUserId = user?.id || user?._id;
@@ -197,6 +200,12 @@ const { userId: partnerId, userName } = route.params;
 
   const ChatContent = (
     <View style={styles.inner}>
+      {/* E2EE Security Message at top of Chat Screen */}
+      <View style={styles.e2eeTagContainer}>
+        <Ionicons name="lock-closed-outline" size={12} color={colors.textSoft} />
+        <Text style={styles.e2eeTagText}>Messages are end-to-end encrypted</Text>
+      </View>
+
       <FlatList
         ref={flatListRef}
         data={invertedMessages}
@@ -225,7 +234,7 @@ const { userId: partnerId, userName } = route.params;
       />
 
       {isFriend ? (
-        <View style={styles.inputWrapper}>
+        <View style={[styles.inputWrapper, { paddingBottom: Math.max(insets.bottom, spacing.sm) }]}>
           <View style={styles.inputBar}>
             <TouchableOpacity onPress={pickImage} style={styles.attachButton} disabled={uploadingImage}>
               <Ionicons name="image-outline" size={24} color={uploadingImage ? colors.textSoft : colors.secondary} />
@@ -248,7 +257,7 @@ const { userId: partnerId, userName } = route.params;
           </View>
         </View>
       ) : (
-        <View style={styles.lockBanner}>
+        <View style={[styles.lockBanner, { paddingBottom: Math.max(insets.bottom, spacing.xl) }]}>
           <Ionicons name="lock-closed" size={22} color={colors.textMuted} />
           <Text style={styles.lockText}>
             You can only message users who are in your friends list.
@@ -289,14 +298,14 @@ const { userId: partnerId, userName } = route.params;
   );
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
       {isWeb ? (
         <View style={styles.container}>{ChatContent}</View>
       ) : (
         <KeyboardAvoidingView
           style={styles.container}
           behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-          keyboardVerticalOffset={headerHeight + 10}
+          keyboardVerticalOffset={Platform.OS === 'ios' ? (headerHeight > 0 ? headerHeight : 90) : 0}
         >
           {ChatContent}
         </KeyboardAvoidingView>
@@ -331,6 +340,21 @@ const { userId: partnerId, userName } = route.params;
 let styles;
 let colors;
 const getStyles = (colors) => StyleSheet.create({
+  e2eeTagContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: spacing.xs,
+    backgroundColor: colors.backgroundAlt,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+    gap: 4,
+  },
+  e2eeTagText: {
+    fontSize: 12,
+    color: colors.textSoft,
+    fontWeight: '500',
+  },
   safeArea: { flex: 1, backgroundColor: colors.background },
   container: { flex: 1 },
   inner: { flex: 1, backgroundColor: colors.background },

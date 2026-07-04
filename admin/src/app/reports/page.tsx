@@ -4,17 +4,16 @@ import React, { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import {
   Search,
-  Filter,
-  ChevronDown,
   Flag,
-  CheckCircle,
-  XCircle,
-  AlertTriangle,
-  Clock,
   RefreshCw,
+  ChevronRight,
 } from "lucide-react";
 import { getReports, bulkAction } from "@/lib/api";
-import { formatDateTime, timeAgo, cn } from "@/lib/utils";
+import { timeAgo, cn } from "@/lib/utils";
+import { PageHeader } from "@/components/ui/PageHeader";
+import { Card } from "@/components/ui/Card";
+import { Button } from "@/components/ui/Button";
+import { Badge, StatusBadge, PriorityBadge } from "@/components/ui/Badge";
 
 const TARGET_TYPES = [
   { value: "", label: "All Types" },
@@ -37,22 +36,6 @@ const STATUS_OPTIONS = [
   { value: "closed", label: "Closed" },
 ];
 
-const STATUS_COLORS: Record<string, string> = {
-  open: "bg-yellow-100 text-yellow-700 border-yellow-200",
-  in_review: "bg-blue-100 text-blue-700 border-blue-200",
-  dismissed: "bg-gray-100 text-gray-600 border-gray-200",
-  action_taken: "bg-green-100 text-green-700 border-green-200",
-  escalated: "bg-red-100 text-red-700 border-red-200",
-  closed: "bg-purple-100 text-purple-700 border-purple-200",
-};
-
-const PRIORITY_COLORS: Record<string, string> = {
-  low: "bg-gray-100 text-gray-600",
-  normal: "bg-blue-100 text-blue-700",
-  high: "bg-orange-100 text-orange-700",
-  critical: "bg-red-100 text-red-700",
-};
-
 interface Report {
   id: string;
   _id: string;
@@ -67,6 +50,12 @@ interface Report {
   createdAt: string;
   reporter?: { name: string };
 }
+
+const selectClass =
+  "px-3 py-2 rounded-lg border border-input bg-card/60 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring transition-all cursor-pointer appearance-none";
+
+const inputClass =
+  "w-full pl-9 pr-4 py-2 rounded-lg border border-input bg-card/60 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring transition-all";
 
 export default function ReportsPage() {
   const [reports, setReports] = useState<Report[]>([]);
@@ -138,149 +127,113 @@ export default function ReportsPage() {
   };
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold">Reports Queue</h1>
-          <p className="text-muted-foreground text-sm mt-1">
-            Review and manage user reports
-          </p>
-        </div>
-        <button
-          onClick={fetchReports}
-          className="flex items-center gap-2 px-4 py-2 rounded-lg border border-border text-sm hover:bg-muted transition-colors"
-        >
-          <RefreshCw size={16} />
-          Refresh
-        </button>
-      </div>
+    <div className="space-y-5">
+      <PageHeader
+        title="Reports Queue"
+        subtitle="Review and manage user reports"
+        actions={
+          <Button variant="outline" size="md" onClick={fetchReports}>
+            <RefreshCw size={14} /> Refresh
+          </Button>
+        }
+      />
 
       {/* Filters */}
-      <div className="bg-white dark:bg-gray-900 rounded-xl border border-border p-4">
+      <Card className="p-4">
         <div className="flex flex-wrap items-center gap-3">
           <div className="relative flex-1 min-w-[200px]">
-            <Search
-              size={16}
-              className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground"
-            />
+            <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
             <input
               type="text"
-              placeholder="Search reports..."
+              placeholder="Search reports…"
               value={search}
               onChange={(e) => { setSearch(e.target.value); setPage(1); }}
-              className="w-full pl-9 pr-4 py-2 rounded-lg border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+              className={inputClass}
             />
           </div>
 
-          <select
-            value={targetFilter}
-            onChange={(e) => { setTargetFilter(e.target.value); setPage(1); }}
-            className="px-3 py-2 rounded-lg border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring"
-          >
+          <select value={targetFilter} onChange={(e) => { setTargetFilter(e.target.value); setPage(1); }} className={selectClass}>
             {TARGET_TYPES.map((t) => (
               <option key={t.value} value={t.value}>{t.label}</option>
             ))}
           </select>
 
-          <select
-            value={statusFilter}
-            onChange={(e) => { setStatusFilter(e.target.value); setPage(1); }}
-            className="px-3 py-2 rounded-lg border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring"
-          >
+          <select value={statusFilter} onChange={(e) => { setStatusFilter(e.target.value); setPage(1); }} className={selectClass}>
             {STATUS_OPTIONS.map((s) => (
               <option key={s.value} value={s.value}>{s.label}</option>
             ))}
           </select>
 
-          <select
-            value={priorityFilter}
-            onChange={(e) => { setPriorityFilter(e.target.value); setPage(1); }}
-            className="px-3 py-2 rounded-lg border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring"
-          >
+          <select value={priorityFilter} onChange={(e) => { setPriorityFilter(e.target.value); setPage(1); }} className={selectClass}>
             <option value="">All Priority</option>
             <option value="low">Low</option>
             <option value="normal">Normal</option>
+            <option value="medium">Medium</option>
             <option value="high">High</option>
             <option value="critical">Critical</option>
           </select>
         </div>
-      </div>
+      </Card>
 
       {/* Bulk Actions */}
       {selectedIds.length > 0 && (
-        <div className="flex items-center gap-2 px-4 py-3 bg-primary/5 rounded-lg border border-primary/20">
+        <div className="flex flex-wrap items-center gap-2 px-4 py-3 glass rounded-xl border border-primary/25 shadow-soft">
           <span className="text-sm font-medium">{selectedIds.length} selected</span>
-          <div className="h-4 w-px bg-border mx-2" />
-          <button
-            onClick={() => handleBulkAction("dismiss")}
-            disabled={bulkLoading}
-            className="px-3 py-1.5 rounded-md bg-gray-100 text-gray-700 text-sm hover:bg-gray-200 disabled:opacity-50"
-          >
+          <div className="h-4 w-px bg-border mx-1" />
+          <Button variant="secondary" size="sm" onClick={() => handleBulkAction("dismiss")} disabled={bulkLoading}>
             Dismiss All
-          </button>
-          <button
-            onClick={() => handleBulkAction("escalate")}
-            disabled={bulkLoading}
-            className="px-3 py-1.5 rounded-md bg-orange-100 text-orange-700 text-sm hover:bg-orange-200 disabled:opacity-50"
-          >
+          </Button>
+          <Button variant="danger" size="sm" onClick={() => handleBulkAction("escalate")} disabled={bulkLoading}>
             Escalate All
-          </button>
-          <button
-            onClick={() => handleBulkAction("close")}
-            disabled={bulkLoading}
-            className="px-3 py-1.5 rounded-md bg-purple-100 text-purple-700 text-sm hover:bg-purple-200 disabled:opacity-50"
-          >
+          </Button>
+          <Button variant="outline" size="sm" onClick={() => handleBulkAction("close")} disabled={bulkLoading}>
             Close All
-          </button>
-          <button
-            onClick={() => setSelectedIds([])}
-            className="px-3 py-1.5 rounded-md text-sm text-muted-foreground hover:text-foreground"
-          >
+          </Button>
+          <Button variant="ghost" size="sm" onClick={() => setSelectedIds([])}>
             Clear
-          </button>
+          </Button>
         </div>
       )}
 
       {/* Reports Table */}
-      <div className="bg-white dark:bg-gray-900 rounded-xl border border-border overflow-hidden">
+      <Card glass={false} className="bg-card overflow-hidden p-0">
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
-              <tr className="border-b border-border bg-muted/50">
+              <tr className="border-b border-border bg-table-header">
                 <th className="w-10 px-4 py-3 text-left">
                   <input
                     type="checkbox"
                     checked={selectedIds.length === reports.length && reports.length > 0}
                     onChange={toggleSelectAll}
-                    className="rounded border-border"
+                    className="rounded border-border accent-[var(--color-primary)]"
                   />
                 </th>
-                <th className="px-4 py-3 text-left font-medium text-muted-foreground">Type</th>
-                <th className="px-4 py-3 text-left font-medium text-muted-foreground">Reason</th>
-                <th className="px-4 py-3 text-left font-medium text-muted-foreground">Reporter</th>
-                <th className="px-4 py-3 text-left font-medium text-muted-foreground">Status</th>
-                <th className="px-4 py-3 text-left font-medium text-muted-foreground">Priority</th>
-                <th className="px-4 py-3 text-left font-medium text-muted-foreground">Created</th>
-                <th className="px-4 py-3 text-right font-medium text-muted-foreground">Action</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider">Type</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider">Reason</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider">Reporter</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider">Status</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider">Priority</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider">Created</th>
+                <th className="px-4 py-3 text-right text-xs font-semibold text-muted-foreground uppercase tracking-wider">Action</th>
               </tr>
             </thead>
-            <tbody>
+            <tbody className="divide-y divide-border">
               {loading ? (
                 <tr>
                   <td colSpan={8} className="text-center py-12">
                     <div className="flex items-center justify-center gap-2 text-muted-foreground">
-                      <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-primary" />
-                      Loading reports...
+                      <div className="h-5 w-5 rounded-full border-2 border-primary/30 border-t-primary animate-spin-slow" />
+                      Loading reports…
                     </div>
                   </td>
                 </tr>
               ) : reports.length === 0 ? (
                 <tr>
-                  <td colSpan={8} className="text-center py-12">
+                  <td colSpan={8} className="text-center py-16">
                     <div className="flex flex-col items-center gap-2 text-muted-foreground">
-                      <Flag size={32} className="opacity-30" />
-                      <p>No reports found</p>
+                      <Flag size={32} className="opacity-20" />
+                      <p className="text-sm">No reports found</p>
                     </div>
                   </td>
                 </tr>
@@ -291,7 +244,7 @@ export default function ReportsPage() {
                     <tr
                       key={id}
                       className={cn(
-                        "border-b border-border hover:bg-muted/30 transition-colors",
+                        "transition-colors hover:bg-accent/40",
                         selectedIds.includes(id) && "bg-primary/5"
                       )}
                     >
@@ -300,49 +253,23 @@ export default function ReportsPage() {
                           type="checkbox"
                           checked={selectedIds.includes(id)}
                           onChange={() => toggleSelect(id)}
-                          className="rounded border-border"
+                          className="rounded border-border accent-[var(--color-primary)]"
                         />
                       </td>
                       <td className="px-4 py-3">
-                        <span className="capitalize px-2 py-0.5 rounded-full text-xs font-medium bg-muted">
-                          {report.targetType}
-                        </span>
+                        <Badge variant="neutral" className="capitalize">{report.targetType}</Badge>
                       </td>
-                      <td className="px-4 py-3 max-w-[200px] truncate font-medium">
-                        {report.reason}
-                      </td>
-                      <td className="px-4 py-3 text-muted-foreground">
-                        {report.reporter?.name || "Anonymous"}
-                      </td>
-                      <td className="px-4 py-3">
-                        <span
-                          className={cn(
-                            "inline-block px-2 py-0.5 rounded-full text-xs font-medium border",
-                            STATUS_COLORS[report.status] || "bg-gray-100 text-gray-700"
-                          )}
-                        >
-                          {report.status.replace("_", " ")}
-                        </span>
-                      </td>
-                      <td className="px-4 py-3">
-                        <span
-                          className={cn(
-                            "inline-block px-2 py-0.5 rounded-full text-xs font-medium",
-                            PRIORITY_COLORS[report.priority] || "bg-gray-100 text-gray-600"
-                          )}
-                        >
-                          {report.priority}
-                        </span>
-                      </td>
-                      <td className="px-4 py-3 text-muted-foreground text-xs">
-                        {timeAgo(report.createdAt)}
-                      </td>
+                      <td className="px-4 py-3 max-w-[200px] truncate font-medium">{report.reason}</td>
+                      <td className="px-4 py-3 text-muted-foreground">{report.reporter?.name || "Anonymous"}</td>
+                      <td className="px-4 py-3"><StatusBadge status={report.status} /></td>
+                      <td className="px-4 py-3"><PriorityBadge priority={report.priority} /></td>
+                      <td className="px-4 py-3 text-muted-foreground text-xs whitespace-nowrap">{timeAgo(report.createdAt)}</td>
                       <td className="px-4 py-3 text-right">
                         <Link
                           href={`/reports/${id}`}
-                          className="inline-flex items-center gap-1 text-primary text-xs font-medium hover:underline"
+                          className="inline-flex items-center gap-1 text-primary text-xs font-semibold hover:gap-1.5 transition-all"
                         >
-                          Review <ChevronDown size={14} className="rotate-[-90deg]" />
+                          Review <ChevronRight size={13} />
                         </Link>
                       </td>
                     </tr>
@@ -356,26 +283,16 @@ export default function ReportsPage() {
         {/* Pagination */}
         {totalPages > 1 && (
           <div className="flex items-center justify-between px-4 py-3 border-t border-border">
-            <button
-              onClick={() => setPage((p) => Math.max(1, p - 1))}
-              disabled={page === 1}
-              className="px-3 py-1.5 rounded-md border border-border text-sm disabled:opacity-40"
-            >
+            <Button variant="outline" size="sm" onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page === 1}>
               Previous
-            </button>
-            <span className="text-sm text-muted-foreground">
-              Page {page} of {totalPages}
-            </span>
-            <button
-              onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-              disabled={page === totalPages}
-              className="px-3 py-1.5 rounded-md border border-border text-sm disabled:opacity-40"
-            >
+            </Button>
+            <span className="text-xs text-muted-foreground">Page {page} of {totalPages}</span>
+            <Button variant="outline" size="sm" onClick={() => setPage((p) => Math.min(totalPages, p + 1))} disabled={page === totalPages}>
               Next
-            </button>
+            </Button>
           </div>
         )}
-      </div>
+      </Card>
     </div>
   );
 }

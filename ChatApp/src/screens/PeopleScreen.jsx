@@ -27,21 +27,20 @@ export default function PeopleScreen({ navigation }) {
     const { colors: themeColors, isDark, toggleTheme } = useTheme();
   colors = themeColors;
   styles = getStyles(colors);
-const { 
-    users, 
-    isLoadingUsers, 
-    fetchUsers,
-    friends,
-    friendRequests,
-    suggestions,
-    hasMoreSuggestions,
-    sendFriendRequest,
-    respondFriendRequest,
-    removeFriend,
-    fetchFriends,
-    fetchFriendRequests,
-    fetchSuggestions,
-  } = useChatStore();
+
+  const users = useChatStore(state => state.users);
+  const isLoadingUsers = useChatStore(state => state.isLoadingUsers);
+  const fetchUsers = useChatStore(state => state.fetchUsers);
+  const friends = useChatStore(state => state.friends);
+  const friendRequests = useChatStore(state => state.friendRequests);
+  const suggestions = useChatStore(state => state.suggestions);
+  const hasMoreSuggestions = useChatStore(state => state.hasMoreSuggestions);
+  const sendFriendRequest = useChatStore(state => state.sendFriendRequest);
+  const respondFriendRequest = useChatStore(state => state.respondFriendRequest);
+  const removeFriend = useChatStore(state => state.removeFriend);
+  const fetchFriends = useChatStore(state => state.fetchFriends);
+  const fetchFriendRequests = useChatStore(state => state.fetchFriendRequests);
+  const fetchSuggestions = useChatStore(state => state.fetchSuggestions);
 
   const currentUserId = useAuthStore((state) => state.user?.id || state.user?._id);
   const [activeTab, setActiveTab] = useState('suggestions'); // 'friends' | 'requests' | 'sent' | 'suggestions'
@@ -321,7 +320,7 @@ const {
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.tabScroll}>
           {[
             { id: 'friends', label: 'Friends' },
-            { id: 'requests', label: 'Requests' },
+            { id: 'requests', label: 'Requests', badge: friendRequests.filter(r => (r.receiver?._id || r.receiver?.id || r.receiver) === currentUserId && r.status === 'pending').length },
             { id: 'sent', label: 'Sent' },
             { id: 'suggestions', label: 'Suggestions' },
           ].map((tab) => (
@@ -331,9 +330,18 @@ const {
               style={[styles.tabItem, activeTab === tab.id && styles.activeTabItem]}
               onPress={() => setActiveTab(tab.id)}
             >
-              <Text style={[styles.tabText, activeTab === tab.id && styles.activeTabText]}>
-                {tab.label}
-              </Text>
+              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                <Text style={[styles.tabText, activeTab === tab.id && styles.activeTabText]}>
+                  {tab.label}
+                </Text>
+                {tab.badge > 0 && (
+                  <View style={[styles.tabBadge, activeTab === tab.id ? styles.activeTabBadge : styles.inactiveTabBadge]}>
+                    <Text style={[styles.tabBadgeText, activeTab === tab.id ? styles.activeTabBadgeText : styles.inactiveTabBadgeText]}>
+                      {tab.badge}
+                    </Text>
+                  </View>
+                )}
+              </View>
             </TouchableOpacity>
           ))}
         </ScrollView>
@@ -347,6 +355,7 @@ const {
       ) : (
         <FlatList
           data={displayData}
+          extraData={[friends, friendRequests, suggestions]}
           keyExtractor={(item) => item.id}
           renderItem={renderUserItem}
           contentContainerStyle={styles.listContent}
@@ -534,5 +543,30 @@ const getStyles = (colors) => StyleSheet.create({
     fontSize: 12,
     color: colors.textMuted,
     fontWeight: '500',
+  },
+  tabBadge: {
+    minWidth: 18,
+    height: 18,
+    borderRadius: 9,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginLeft: 6,
+    paddingHorizontal: 4,
+  },
+  activeTabBadge: {
+    backgroundColor: colors.white,
+  },
+  inactiveTabBadge: {
+    backgroundColor: colors.primary,
+  },
+  tabBadgeText: {
+    fontSize: 10,
+    fontWeight: '700',
+  },
+  activeTabBadgeText: {
+    color: colors.primary,
+  },
+  inactiveTabBadgeText: {
+    color: colors.white,
   },
 });

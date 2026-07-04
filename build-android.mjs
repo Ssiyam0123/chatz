@@ -115,6 +115,12 @@ const build = async () => {
   try {
     console.log('📦 Starting Local Windows Android build via Expo Prebuild...');
 
+    // Delete existing android folder for a completely fresh build
+    if (fs.existsSync(androidDir)) {
+      console.log('🗑️ Deleting existing android directory for clean build...');
+      fs.rmSync(androidDir, { recursive: true, force: true });
+    }
+
     // 1. Generate Android Directory
     console.log('\n--- Running Expo Prebuild ---');
     await runCommand('npx', ['expo', 'prebuild', '--platform', 'android'], chatAppDir);

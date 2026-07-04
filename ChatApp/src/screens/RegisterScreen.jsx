@@ -10,6 +10,7 @@ import {
   Platform,
   ScrollView,
   SafeAreaView,
+  ActivityIndicator,
 } from "react-native";
 import { useAuthStore } from "../stores/authStore";
 import { Ionicons } from "@expo/vector-icons";
@@ -17,13 +18,15 @@ import { radii, spacing } from '../theme/blushDusk';
 import { useTheme } from '../theme/ThemeContext';
 
 export default function RegisterScreen({ navigation }) {
-    const { colors: themeColors, isDark, toggleTheme } = useTheme();
-  colors = themeColors;
-  styles = getStyles(colors);
-const [name, setName] = useState("");
+  const { colors: themeColors } = useTheme();
+  const colors = themeColors;
+  const styles = getStyles(colors);
+
+  const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPass, setShowPass] = useState(false);
+  const [loading, setLoading] = useState(false);
   const register = useAuthStore((state) => state.register);
 
   return (
@@ -93,28 +96,37 @@ const [name, setName] = useState("");
           </View>
 
           <TouchableOpacity
-            style={styles.button}
+            style={[styles.button, loading && { opacity: 0.8 }]}
             onPress={async () => {
               if (!name || !email || !password) {
                 Alert.alert("Error", "Please fill in all fields");
                 return;
               }
               try {
+                setLoading(true);
                 await register(name, email, password);
               } catch (error) {
                 const errorMsg = error.response?.data?.message || "Registration failed";
                 Alert.alert("Registration Error", errorMsg);
+              } finally {
+                setLoading(false);
               }
             }}
             activeOpacity={0.85}
+            disabled={loading}
           >
-            <Text style={styles.buttonText}>Create Account</Text>
+            {loading ? (
+              <ActivityIndicator color={colors.white} size="small" />
+            ) : (
+              <Text style={styles.buttonText}>Create Account</Text>
+            )}
           </TouchableOpacity>
 
           <TouchableOpacity
             onPress={() => navigation.goBack()}
             style={styles.linkWrap}
             hitSlop={{ top: 10, bottom: 10 }}
+            disabled={loading}
           >
             <Text style={styles.linkText}>
               Already have an account? <Text style={styles.linkHighlight}>Sign in</Text>
@@ -129,7 +141,6 @@ const [name, setName] = useState("");
 let styles;
 let colors;
 const getStyles = (colors) => StyleSheet.create({
-  inner: { flexGrow: 1, justifyContent: "center", padding: spacing.xxl },
   brandRow: {
     flexDirection: 'row',
     alignItems: 'center',

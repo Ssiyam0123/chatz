@@ -3,7 +3,7 @@ import { cva, type VariantProps } from "class-variance-authority";
 import { cn } from "@/lib/utils";
 
 const badgeVariants = cva(
-  "inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium border whitespace-nowrap",
+  "inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[11px] font-semibold border whitespace-nowrap capitalize tracking-wide",
   {
     variants: {
       variant: {
@@ -32,7 +32,7 @@ export function Badge({ className, variant, ...props }: BadgeProps) {
   return <span className={cn(badgeVariants({ variant }), className)} {...props} />;
 }
 
-/* ── Status / priority / role helpers (replace the old hardcoded maps) ── */
+/* ── Status / priority / role helpers ── */
 
 export function StatusBadge({ status }: { status: string }) {
   const safeStatus = status || "";
@@ -54,16 +54,18 @@ export function StatusBadge({ status }: { status: string }) {
         return "neutral";
     }
   })();
-  return <Badge variant={variant}>{safeStatus.replace(/_/g, " ")}</Badge>;
+  return <Badge variant={variant}>{safeStatus.replace(/_/g, " ") || "unknown"}</Badge>;
 }
 
 export function PriorityBadge({ priority }: { priority: string }) {
+  const safePriority = priority || "";
   const variant: BadgeProps["variant"] = (() => {
-    switch (priority) {
+    switch (safePriority) {
       case "critical":
         return "danger";
       case "high":
         return "warning";
+      case "medium":
       case "normal":
         return "info";
       case "low":
@@ -72,7 +74,7 @@ export function PriorityBadge({ priority }: { priority: string }) {
         return "neutral";
     }
   })();
-  return <Badge variant={variant}>{priority || ""}</Badge>;
+  return <Badge variant={variant}>{safePriority || "—"}</Badge>;
 }
 
 export function RoleBadge({ role }: { role: string }) {
@@ -90,7 +92,7 @@ export function RoleBadge({ role }: { role: string }) {
         return "neutral";
     }
   })();
-  return <Badge variant={variant}>{(role || "").replace(/_/g, " ")}</Badge>;
+  return <Badge variant={variant}>{(role || "").replace(/_/g, " ") || "user"}</Badge>;
 }
 
 export default Badge;

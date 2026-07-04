@@ -178,14 +178,28 @@ const useChatStore = create((set, get) => ({
     });
 
     socket.on('receive_group_message', (message) => {
-      get().addGroupMessage(message.group, message);
+      const groupId = message.group || message.groupId;
+      get().addGroupMessage(groupId, message);
+
+      // Also trigger a group conversation update so the chat list updates instantly
+      const { groups } = get();
+      const groupInfo = groups.find(g => (g._id || g.id) === groupId);
+      get().updateConversation({
+        _id: groupId,
+        name: groupInfo?.name || 'Group Chat',
+        avatar: groupInfo?.avatar,
+        lastMessage: message.image ? '📷 Image' : message.text,
+        lastMessageTime: message.createdAt,
+        isGroup: true,
+        isUnread: true
+      });
     });
 
     socket.on('message_sent', (confirmedMessage) => {
-      if (confirmedMessage.group) {
+      const groupId = confirmedMessage.group || confirmedMessage.groupId;
+      if (groupId) {
         // Handle group confirmation
         set((state) => {
-          const groupId = confirmedMessage.group;
           const cache = state.groupMessagesCache[groupId] || [];
           return {
             groupMessagesCache: {
@@ -193,6 +207,18 @@ const useChatStore = create((set, get) => ({
               [groupId]: cache.map(m => m.clientId === confirmedMessage.clientId ? confirmedMessage : m)
             }
           };
+        });
+
+        // Trigger a conversation update for the sender too so last message updates instantly
+        const { groups } = get();
+        const groupInfo = groups.find(g => (g._id || g.id) === groupId);
+        get().updateConversation({
+          _id: groupId,
+          name: groupInfo?.name || 'Group Chat',
+          avatar: groupInfo?.avatar,
+          lastMessage: confirmedMessage.image ? '📷 Image' : confirmedMessage.text,
+          lastMessageTime: confirmedMessage.createdAt,
+          isGroup: true
         });
       } else {
         // Handle private confirmation
@@ -280,24 +306,44 @@ const useChatStore = create((set, get) => ({
       get().fetchStories();
     });
 
-    // Debounced social refresh - avoids waterfall API calls on rapid social events
-    let _socialRefreshTimer = null;
-    const debouncedSocialRefresh = () => {
-      clearTimeout(_socialRefreshTimer);
-      _socialRefreshTimer = setTimeout(() => {
-        Promise.all([
-          get().fetchFriendRequests(),
-          get().fetchFriends(),
-          get().fetchSuggestions(),
-          get().fetchConversations(),
-          // Note: fetchUsers NOT called here - it fetches ALL 2000 users unnecessarily
-        ]);
-      }, 500);
-    };
+    // Handle live friend request events from socket
+    socket.on('friend_request_received', (req) => {
+      set((state) => {
+        const alreadyExists = state.friendRequests.some(r => (r.id || r._id) === (req.id || req._id));
+        if (alreadyExists) return {};
+        return { friendRequests: [...state.friendRequests, req] };
+      });
+      // Refresh options to keep state fully clean
+      get().fetchSuggestions();
+      get().fetchUsers(false);
+    });
 
-    socket.on('friend_request_received', debouncedSocialRefresh);
-    socket.on('friend_request_responded', debouncedSocialRefresh);
-    socket.on('friend_removed', debouncedSocialRefresh);
+    socket.on('friend_request_responded', ({ requestId, status, request }) => {
+      set((state) => {
+        // Remove from pending list
+        const updatedRequests = state.friendRequests.filter(r => (r.id || r._id) !== requestId);
+        return { friendRequests: updatedRequests };
+      });
+      
+      // If accepted, fetch updated friends list & suggestions
+      get().fetchFriends();
+      get().fetchSuggestions();
+      get().fetchUsers(false);
+      get().fetchConversations();
+    });
+
+    socket.on('friend_removed', ({ friendId }) => {
+      set((state) => ({
+        friends: state.friends.filter(f => (f.id || f._id) !== friendId),
+        friendRequests: state.friendRequests.filter(
+          r => !((r.senderId === friendId || (r.sender?.id || r.sender?._id) === friendId) || 
+                 (r.receiverId === friendId || (r.receiver?.id || r.receiver?._id) === friendId))
+        )
+      }));
+      get().fetchSuggestions();
+      get().fetchUsers(false);
+      get().fetchConversations();
+    });
     
     set({ _socket: socket });
     
@@ -481,6 +527,18 @@ const useChatStore = create((set, get) => ({
       }
     }
 
+    if (!e2eePrivateKey) {
+      Alert.alert('Security Error', 'Your end-to-end encryption keys are not initialized. Please try logging in again.');
+      return;
+    }
+
+    if (!receiverPublicKey) {
+      Alert.alert('Security Error', 'The recipient has not initialized their end-to-end encryption keys. Cannot send message securely.');
+      return;
+    }
+
+    // Both users have E2EE keypairs, encrypt message text & image payload in a JSON box
+    const encryptPayload = { text, image: imageUrl };
     let payload = { receiverId, clientId };
     let optimisticMsg = {
       _id: clientId,
@@ -492,33 +550,23 @@ const useChatStore = create((set, get) => ({
       createdAt: new Date().toISOString(),
     };
 
-    if (receiverPublicKey && e2eePrivateKey) {
-      // Both users have E2EE keypairs, encrypt message text & image payload in a JSON box
-      const encryptPayload = { text, image: imageUrl };
-      try {
-        const { ciphertext, nonce } = encryptMessage(
-          JSON.stringify(encryptPayload), 
-          receiverPublicKey, 
-          e2eePrivateKey
-        );
-        payload.ciphertext = ciphertext;
-        payload.nonce = nonce;
-        payload.isEncrypted = true;
+    try {
+      const { ciphertext, nonce } = encryptMessage(
+        JSON.stringify(encryptPayload), 
+        receiverPublicKey, 
+        e2eePrivateKey
+      );
+      payload.ciphertext = ciphertext;
+      payload.nonce = nonce;
+      payload.isEncrypted = true;
 
-        optimisticMsg.ciphertext = ciphertext;
-        optimisticMsg.nonce = nonce;
-        optimisticMsg.isEncrypted = true;
-      } catch (err) {
-        console.error('Encryption failed, sending unencrypted fallback:', err);
-        payload.text = text;
-        payload.image = imageUrl;
-        payload.isEncrypted = false;
-      }
-    } else {
-      // Fallback for users without keypairs
-      payload.text = text;
-      payload.image = imageUrl;
-      payload.isEncrypted = false;
+      optimisticMsg.ciphertext = ciphertext;
+      optimisticMsg.nonce = nonce;
+      optimisticMsg.isEncrypted = true;
+    } catch (err) {
+      console.error('Encryption failed:', err);
+      Alert.alert('Security Error', 'Failed to encrypt your message. Cannot send insecurely.');
+      return;
     }
 
     get().addPrivateMessage(receiverId, optimisticMsg);

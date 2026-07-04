@@ -35,31 +35,27 @@ import {
   getModerationSLA,
   getReportStats,
 } from "@/lib/api";
-import { formatNumber, formatPercent, timeAgo } from "@/lib/utils";
+import { formatNumber } from "@/lib/utils";
+import { StatCard } from "@/components/ui/StatCard";
+import { Card, CardHeader, CardTitle, CardBody } from "@/components/ui/Card";
+import { PageHeader } from "@/components/ui/PageHeader";
+import {
+  chartColors,
+  categoryPalette,
+  chartAxisProps,
+  chartGridProps,
+  chartTooltipStyle,
+  formatChartDate,
+} from "@/components/ui/charts";
 
-const COLORS = ["#B98298", "#E8CDD8", "#22c55e", "#f59e0b", "#ef4444", "#3b82f6"];
-
-interface StatCard {
-  title: string;
-  value: string;
-  change: string;
-  icon: React.ReactNode;
-  color: string;
-}
+const emptyBar = [{ date: "No data", count: 0 }];
 
 export default function DashboardPage() {
-  const [stats, setStats] = useState<StatCard[]>([]);
+  const [stats, setStats] = useState<React.ComponentProps<typeof StatCard>[]>([]);
   const [userGrowth, setUserGrowth] = useState<{ date: string; count: number }[]>([]);
   const [dauData, setDauData] = useState<{ date: string; dau: number; wau: number; mau: number }[]>([]);
   const [geoData, setGeoData] = useState<{ country: string; count: number }[]>([]);
   const [deviceData, setDeviceData] = useState<{ name: string; value: number }[]>([]);
-  const [slaData, setSlaData] = useState<{ status: string; avg_hours: number }[]>([]);
-  const [reportStats, setReportStats] = useState({
-    total: 0,
-    open: 0,
-    resolved: 0,
-    escalated: 0,
-  });
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -88,43 +84,43 @@ export default function DashboardPage() {
               title: "Total Users",
               value: formatNumber(d.totalUsers || 0),
               change: `+${formatNumber(d.newUsersToday || 0)} today`,
-              icon: <Users size={20} />,
-              color: "bg-purple-50 text-purple-600",
+              icon: <Users size={18} />,
+              accent: "primary",
             },
             {
               title: "Active Users (DAU)",
               value: formatNumber(d.dau || 0),
               change: `WAU: ${formatNumber(d.wau || 0)}`,
-              icon: <TrendingUp size={20} />,
-              color: "bg-blue-50 text-blue-600",
+              icon: <TrendingUp size={18} />,
+              accent: "info",
             },
             {
               title: "Messages Today",
               value: formatNumber(d.messagesToday || 0),
               change: `Total: ${formatNumber(d.totalMessages || 0)}`,
-              icon: <MessageSquare size={20} />,
-              color: "bg-green-50 text-green-600",
+              icon: <MessageSquare size={18} />,
+              accent: "success",
             },
             {
               title: "Open Reports",
               value: formatNumber(d.openReports || 0),
               change: `${formatNumber(d.reportsToday || 0)} today`,
-              icon: <Flag size={20} />,
-              color: "bg-orange-50 text-orange-600",
+              icon: <Flag size={18} />,
+              accent: "warning",
             },
             {
               title: "Avg Resolution",
               value: `${d.avgResolutionHours || 0}h`,
               change: `${d.resolvedReports || 0} resolved`,
-              icon: <Clock size={20} />,
-              color: "bg-cyan-50 text-cyan-600",
+              icon: <Clock size={18} />,
+              accent: "info",
             },
             {
               title: "Active Reports",
               value: formatNumber(d.activeReports || 0),
               change: `${d.escalatedReports || 0} escalated`,
-              icon: <AlertTriangle size={20} />,
-              color: "bg-red-50 text-red-600",
+              icon: <AlertTriangle size={18} />,
+              accent: "danger",
             },
           ]);
         }
@@ -145,19 +141,10 @@ export default function DashboardPage() {
           setDeviceData(d.devices || d.platforms || []);
         }
 
-        if (slaRes.status === "fulfilled") {
-          const d = slaRes.value.data.data || slaRes.value.data;
-          setSlaData(Array.isArray(d) ? d : d.sla || []);
-        }
+        void slaRes; // reserved for future moderation SLA widget
 
         if (reportStatsRes.status === "fulfilled") {
-          const d = reportStatsRes.value.data.data || reportStatsRes.value.data;
-          setReportStats({
-            total: d.total || 0,
-            open: d.open || 0,
-            resolved: d.resolved || 0,
-            escalated: d.escalated || 0,
-          });
+          void reportStatsRes; // reserved for future use
         }
       } catch (err) {
         console.error("Dashboard fetch error:", err);
@@ -170,146 +157,159 @@ export default function DashboardPage() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
+      <div className="space-y-6">
+        <PageHeader title="Overview" subtitle="Real-time analytics & moderation" />
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
+          {Array.from({ length: 6 }).map((_, i) => (
+            <div key={i} className="shimmer h-36 rounded-xl border border-border" />
+          ))}
+        </div>
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <div key={i} className="shimmer h-80 rounded-xl border border-border" />
+          ))}
+        </div>
       </div>
     );
   }
 
+  const geoChart = geoData.length > 0 ? geoData : [{ country: "No data", count: 1 }];
+  const deviceChart = deviceData.length > 0 ? deviceData : [{ name: "No data", value: 1 }];
+  const palette = categoryPalette();
+
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div>
-        <h1 className="text-2xl font-bold">Overview</h1>
-        <p className="text-muted-foreground text-sm mt-1">
-          Real-time analytics and moderation summary
-        </p>
-      </div>
+      <PageHeader title="Overview" subtitle="Real-time analytics & moderation summary" />
 
       {/* Stat Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4 stagger-children">
         {stats.map((stat, i) => (
-          <div
-            key={i}
-            className="bg-white dark:bg-gray-900 rounded-xl border border-border p-5 hover:shadow-md transition-shadow"
-          >
-            <div className="flex items-center justify-between mb-3">
-              <span className={`p-2 rounded-lg ${stat.color}`}>{stat.icon}</span>
-            </div>
-            <p className="text-2xl font-bold">{stat.value}</p>
-            <p className="text-xs text-muted-foreground mt-1">{stat.title}</p>
-            <p className="text-xs text-green-600 mt-0.5">{stat.change}</p>
-          </div>
+          <StatCard key={i} {...stat} />
         ))}
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* User Growth Chart */}
-        <div className="bg-white dark:bg-gray-900 rounded-xl border border-border p-6">
-          <div className="flex items-center gap-2 mb-4">
-            <BarChart3 size={18} className="text-primary" />
-            <h2 className="font-semibold">User Growth</h2>
-          </div>
-          <div className="h-72">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={userGrowth.length > 0 ? userGrowth : [{ date: "No data", count: 0 }]}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-                <XAxis dataKey="date" tick={{ fontSize: 12 }} />
-                <YAxis tick={{ fontSize: 12 }} />
-                <Tooltip />
-                <Bar dataKey="count" fill="#B98298" radius={[4, 4, 0, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
-        </div>
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+        {/* User Growth */}
+        <Card>
+          <CardHeader>
+            <BarChart3 size={16} className="text-primary" />
+            <CardTitle>User Growth</CardTitle>
+          </CardHeader>
+          <CardBody>
+            <div className="h-64">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={userGrowth.length > 0 ? userGrowth : emptyBar}>
+                  <defs>
+                    <linearGradient id="barGrowth" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor={chartColors.primary} stopOpacity={0.9} />
+                      <stop offset="100%" stopColor={chartColors.primaryStrong} stopOpacity={0.4} />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid {...chartGridProps} />
+                  <XAxis dataKey="date" {...chartAxisProps} tickFormatter={formatChartDate} />
+                  <YAxis {...chartAxisProps} width={35} />
+                  <Tooltip
+                    cursor={{ fill: chartColors.grid, opacity: 0.15 }}
+                    contentStyle={chartTooltipStyle}
+                    labelFormatter={formatChartDate}
+                  />
+                  <Bar dataKey="count" fill="url(#barGrowth)" radius={[4, 4, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          </CardBody>
+        </Card>
 
-        {/* DAU/WAU/MAU Chart */}
-        <div className="bg-white dark:bg-gray-900 rounded-xl border border-border p-6">
-          <div className="flex items-center gap-2 mb-4">
-            <TrendingUp size={18} className="text-primary" />
-            <h2 className="font-semibold">DAU / WAU / MAU</h2>
-          </div>
-          <div className="h-72">
-            <ResponsiveContainer width="100%" height="100%">
-              <LineChart
-                data={dauData.length > 0 ? dauData : [{ date: "No data", dau: 0, wau: 0, mau: 0 }]}
-              >
-                <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-                <XAxis dataKey="date" tick={{ fontSize: 12 }} />
-                <YAxis tick={{ fontSize: 12 }} />
-                <Tooltip />
-                <Line type="monotone" dataKey="dau" stroke="#B98298" strokeWidth={2} dot={false} />
-                <Line type="monotone" dataKey="wau" stroke="#E8CDD8" strokeWidth={2} dot={false} />
-                <Line type="monotone" dataKey="mau" stroke="#22c55e" strokeWidth={2} dot={false} />
-              </LineChart>
-            </ResponsiveContainer>
-          </div>
-        </div>
+        {/* DAU/WAU/MAU */}
+        <Card>
+          <CardHeader>
+            <TrendingUp size={16} className="text-primary" />
+            <CardTitle>DAU / WAU / MAU</CardTitle>
+          </CardHeader>
+          <CardBody>
+            <div className="h-64">
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart
+                  data={dauData.length > 0 ? dauData : [{ date: "No data", dau: 0, wau: 0, mau: 0 }]}
+                >
+                  <CartesianGrid {...chartGridProps} />
+                  <XAxis dataKey="date" {...chartAxisProps} tickFormatter={formatChartDate} />
+                  <YAxis {...chartAxisProps} width={35} />
+                  <Tooltip contentStyle={chartTooltipStyle} labelFormatter={formatChartDate} />
+                  <Legend wrapperStyle={{ fontSize: 11 }} />
+                  <Line type="monotone" dataKey="dau" stroke={chartColors.primary} strokeWidth={2} dot={false} name="DAU" />
+                  <Line type="monotone" dataKey="wau" stroke={chartColors.info} strokeWidth={2} dot={false} name="WAU" />
+                  <Line type="monotone" dataKey="mau" stroke={chartColors.success} strokeWidth={2} dot={false} name="MAU" />
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
+          </CardBody>
+        </Card>
 
         {/* Geography */}
-        <div className="bg-white dark:bg-gray-900 rounded-xl border border-border p-6">
-          <div className="flex items-center gap-2 mb-4">
-            <Globe size={18} className="text-primary" />
-            <h2 className="font-semibold">Geography</h2>
-          </div>
-          <div className="h-72">
-            <ResponsiveContainer width="100%" height="100%">
-              <PieChart>
-                <Pie
-                  data={geoData.length > 0 ? geoData : [{ country: "No data", count: 1 }]}
-                  dataKey="count"
-                  nameKey="country"
-                  cx="50%"
-                  cy="50%"
-                  outerRadius={80}
-                  label={({ country, percent }) =>
-                    `${country} ${(percent * 100).toFixed(0)}%`
-                  }
-                >
-                  {(geoData.length > 0 ? geoData : [{ country: "No data", count: 1 }]).map(
-                    (_: unknown, i: number) => (
-                      <Cell key={i} fill={COLORS[i % COLORS.length]} />
-                    )
-                  )}
-                </Pie>
-                <Tooltip />
-              </PieChart>
-            </ResponsiveContainer>
-          </div>
-        </div>
+        <Card>
+          <CardHeader>
+            <Globe size={16} className="text-primary" />
+            <CardTitle>Geography</CardTitle>
+          </CardHeader>
+          <CardBody>
+            <div className="h-64">
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie
+                    data={geoChart}
+                    dataKey="count"
+                    nameKey="country"
+                    cx="50%"
+                    cy="50%"
+                    outerRadius={80}
+                    innerRadius={45}
+                    paddingAngle={3}
+                    label={({ country, percent }) => `${country} ${(percent * 100).toFixed(0)}%`}
+                  >
+                    {geoChart.map((_: unknown, i: number) => (
+                      <Cell key={i} fill={palette[i % palette.length]} stroke="transparent" strokeWidth={0} />
+                    ))}
+                  </Pie>
+                  <Tooltip contentStyle={chartTooltipStyle} />
+                </PieChart>
+              </ResponsiveContainer>
+            </div>
+          </CardBody>
+        </Card>
 
         {/* Device Breakdown */}
-        <div className="bg-white dark:bg-gray-900 rounded-xl border border-border p-6">
-          <div className="flex items-center gap-2 mb-4">
-            <Smartphone size={18} className="text-primary" />
-            <h2 className="font-semibold">Device / Platform</h2>
-          </div>
-          <div className="h-72">
-            <ResponsiveContainer width="100%" height="100%">
-              <PieChart>
-                <Pie
-                  data={deviceData.length > 0 ? deviceData : [{ name: "No data", value: 1 }]}
-                  dataKey="value"
-                  nameKey="name"
-                  cx="50%"
-                  cy="50%"
-                  outerRadius={80}
-                  label={({ name, percent }) =>
-                    `${name} ${(percent * 100).toFixed(0)}%`
-                  }
-                >
-                  {(deviceData.length > 0 ? deviceData : [{ name: "No data", value: 1 }]).map(
-                    (_: unknown, i: number) => (
-                      <Cell key={i} fill={COLORS[i % COLORS.length]} />
-                    )
-                  )}
-                </Pie>
-                <Tooltip />
-                <Legend />
-              </PieChart>
-            </ResponsiveContainer>
-          </div>
-        </div>
+        <Card>
+          <CardHeader>
+            <Smartphone size={16} className="text-primary" />
+            <CardTitle>Device / Platform</CardTitle>
+          </CardHeader>
+          <CardBody>
+            <div className="h-64">
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie
+                    data={deviceChart}
+                    dataKey="value"
+                    nameKey="name"
+                    cx="50%"
+                    cy="50%"
+                    outerRadius={80}
+                    innerRadius={45}
+                    paddingAngle={3}
+                    label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                  >
+                    {deviceChart.map((_: unknown, i: number) => (
+                      <Cell key={i} fill={palette[i % palette.length]} stroke="transparent" strokeWidth={0} />
+                    ))}
+                  </Pie>
+                  <Tooltip contentStyle={chartTooltipStyle} />
+                  <Legend wrapperStyle={{ fontSize: 11 }} />
+                </PieChart>
+              </ResponsiveContainer>
+            </div>
+          </CardBody>
+        </Card>
       </div>
     </div>
   );

@@ -21,7 +21,7 @@ import * as ImagePicker from 'expo-image-picker';
 import useChatStore from '../stores/chatStore';
 import { useAuthStore } from '../stores/authStore';
 import { useFocusEffect } from '@react-navigation/native';
-import { uploadImage } from '../api/api';
+import { uploadImage, api } from '../api/api';
 import { radii, spacing } from '../theme/blushDusk';
 import { useTheme } from '../theme/ThemeContext';
 import Avatar from '../components/ui/Avatar';
@@ -528,16 +528,30 @@ const { user } = useAuthStore();
   };
 
   const lastFetchedRef = useRef(0);
+  const updateUser = useAuthStore(state => state.updateUser);
+  
   useFocusEffect(
     useCallback(() => {
+      navigation.setOptions({
+        headerShown: false,
+      });
+
       const now = Date.now();
       if (now - lastFetchedRef.current > 30000) { // Only refetch if > 30s stale
         fetchPosts(1, 15);
         fetchStories();
         fetchSuggestions();
+        // Fetch fresh profile data to sync navigation and tab avatar immediately
+        api.get(`/user/profile/${user?.id || user?._id}`)
+          .then(res => {
+            if (res.data.status === 'success') {
+              updateUser(res.data.data.user);
+            }
+          })
+          .catch(err => console.log('Error syncing user profile on feed focus:', err));
         lastFetchedRef.current = now;
       }
-    }, [])
+    }, [user?.id, user?._id, navigation])
   );
 
   const handleRefresh = async () => {
@@ -1072,13 +1086,22 @@ const { user } = useAuthStore();
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
         <Text style={styles.headerTitle}>ChatZ</Text>
-        <TouchableOpacity
-          style={styles.headerBtn}
-          onPress={toggleTheme}
-          activeOpacity={0.7}
-        >
-          <Ionicons name={isDark ? "sunny-outline" : "moon-outline"} size={22} color={colors.primary} />
-        </TouchableOpacity>
+        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+          <TouchableOpacity
+            style={[styles.headerBtn, { marginRight: spacing.sm }]}
+            onPress={() => navigation.navigate('Friends')}
+            activeOpacity={0.7}
+          >
+            <Ionicons name="search-outline" size={22} color={colors.primary} />
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.headerBtn}
+            onPress={toggleTheme}
+            activeOpacity={0.7}
+          >
+            <Ionicons name={isDark ? "sunny-outline" : "moon-outline"} size={22} color={colors.primary} />
+          </TouchableOpacity>
+        </View>
       </View>
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}

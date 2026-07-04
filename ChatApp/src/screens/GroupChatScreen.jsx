@@ -81,6 +81,8 @@ const GroupMessageItem = React.memo(({ item, currentUserId, onReport }) => {
 
 
 
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+
 export default function GroupChatScreen({ route, navigation }) {
     const { colors: themeColors, isDark, toggleTheme } = useTheme();
   colors = themeColors;
@@ -91,6 +93,7 @@ const { groupId, groupName } = route.params;
   const [reportTarget, setReportTarget] = React.useState(null);
   const flatListRef = useRef(null);
   const headerHeight = useHeaderHeight();
+  const insets = useSafeAreaInsets();
 
   const user = useChatStore(state => state.user);
   const currentUserId = user?.id || user?._id;
@@ -189,11 +192,11 @@ const { groupId, groupName } = route.params;
   const typingLabel = typingNames.length > 0 ? `${typingNames.join(', ')} is typing…` : null;
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
       <KeyboardAvoidingView
         style={styles.container}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        keyboardVerticalOffset={headerHeight}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? headerHeight : 0}
       >
         <View style={{ flex: 1 }}>
           <FlatList
@@ -218,7 +221,7 @@ const { groupId, groupName } = route.params;
             </View>
           )}
 
-          <View style={styles.inputWrap}>
+          <View style={[styles.inputWrap, { paddingBottom: Math.max(insets.bottom, spacing.sm) }]}>
             <TouchableOpacity onPress={pickImage} style={styles.attachButton} disabled={uploadingImage}>
               <Ionicons name="image-outline" size={24} color={uploadingImage ? colors.textSoft : colors.secondary} />
             </TouchableOpacity>

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, KeyboardAvoidingView, Platform, ScrollView, SafeAreaView } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, KeyboardAvoidingView, Platform, ScrollView, SafeAreaView, ActivityIndicator } from 'react-native';
 import { useAuthStore } from '../stores/authStore';
 import { Ionicons } from '@expo/vector-icons';
 import { radii, spacing } from '../theme/blushDusk';
@@ -12,6 +12,7 @@ export default function LoginScreen({ navigation }) {
 const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPass, setShowPass] = useState(false);
+  const [loading, setLoading] = useState(false);
   const login = useAuthStore((state) => state.login);
 
   return (
@@ -38,6 +39,7 @@ const [email, setEmail] = useState('');
                 autoComplete="email"
                 value={email}
                 onChangeText={setEmail}
+                editable={!loading}
               />
             </View>
 
@@ -49,32 +51,41 @@ const [email, setEmail] = useState('');
                 secureTextEntry={!showPass}
                 value={password}
                 onChangeText={setPassword}
+                editable={!loading}
               />
-              <TouchableOpacity onPress={() => setShowPass(!showPass)} style={styles.eyeBtn} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+              <TouchableOpacity onPress={() => setShowPass(!showPass)} style={styles.eyeBtn} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }} disabled={loading}>
                 <Ionicons name={showPass ? "eye-off" : "eye"} size={22} color={colors.textMuted} />
               </TouchableOpacity>
             </View>
           </View>
 
           <TouchableOpacity 
-            style={styles.button} 
+            style={[styles.button, loading && { opacity: 0.8 }]} 
             onPress={async () => {
               if (!email || !password) {
                 alert('Please enter both email and password');
                 return;
               }
               try {
+                setLoading(true);
                 await login(email, password);
               } catch (err) {
                 alert(err.response?.data?.error?.message || 'Login failed! Make sure the server is running and your credentials are correct.');
+              } finally {
+                setLoading(false);
               }
             }} 
             activeOpacity={0.85}
+            disabled={loading}
           >
-            <Text style={styles.buttonText}>Sign In</Text>
+            {loading ? (
+              <ActivityIndicator color={colors.white} size="small" />
+            ) : (
+              <Text style={styles.buttonText}>Sign In</Text>
+            )}
           </TouchableOpacity>
 
-          <TouchableOpacity onPress={() => navigation.navigate('Register')} style={styles.linkWrap} hitSlop={{ top: 10, bottom: 10 }}>
+          <TouchableOpacity onPress={() => navigation.navigate('Register')} style={styles.linkWrap} hitSlop={{ top: 10, bottom: 10 }} disabled={loading}>
             <Text style={styles.linkText}>
               Don't have an account? <Text style={styles.linkHighlight}>Sign up</Text>
             </Text>
@@ -88,7 +99,6 @@ const [email, setEmail] = useState('');
 let styles;
 let colors;
 const getStyles = (colors) => StyleSheet.create({
-  inner: { flexGrow: 1, justifyContent: 'center', padding: spacing.xxl },
   brandRow: {
     flexDirection: 'row',
     alignItems: 'center',

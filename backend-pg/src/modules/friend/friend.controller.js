@@ -135,9 +135,16 @@ export const respondToFriendRequest = async (req, res) => {
       await pool.query('DELETE FROM friend_requests WHERE id = $1', [requestId]);
     }
     
-    // Fetch updated request
+    // Fetch updated request with populated sender and receiver
     const { rows: updatedRequests } = await pool.query(
-      'SELECT id, sender_id as "senderId", receiver_id as "receiverId", status, created_at as "createdAt", updated_at as "updatedAt" FROM friend_requests WHERE id = $1',
+      `SELECT 
+        fr.id, fr.sender_id as "senderId", fr.receiver_id as "receiverId", fr.status, fr.created_at as "createdAt", fr.updated_at as "updatedAt",
+        json_build_object('id', s.id, 'name', s.name, 'avatar', s.avatar, 'bio', s.bio, 'publicKey', s.public_key) as sender,
+        json_build_object('id', r.id, 'name', r.name, 'avatar', r.avatar, 'bio', r.bio, 'publicKey', r.public_key) as receiver
+       FROM friend_requests fr
+       JOIN users s ON fr.sender_id = s.id
+       JOIN users r ON fr.receiver_id = r.id
+       WHERE fr.id = $1`,
       [requestId]
     );
     const updatedRequest = updatedRequests[0] || { ...request, status };
@@ -152,13 +159,13 @@ export const respondToFriendRequest = async (req, res) => {
     const io = req.app.get('io');
     if (io) {
       const { userSockets } = await import('../socket/socket.handler.js');
-      console.log(`📡 Emitting friend_request_responded status=${status} to sender=${request.senderId} and receiver=${userId}`);
+      console.log(`📡 Emitting friend_request_responded status=${status} to sender=${updatedRequest.senderId} and receiver=${userId}`);
       // Notify the sender of the request
-      const senderSockets = userSockets.get(String(request.senderId));
+      const senderSockets = userSockets.get(String(updatedRequest.senderId));
       if (senderSockets) {
         for (const socketId of senderSockets) {
           io.to(socketId).emit('friend_request_responded', {
-            requestId: request.id,
+            requestId: updatedRequest.id,
             status,
             request: updatedRequest
           });
@@ -169,7 +176,7 @@ export const respondToFriendRequest = async (req, res) => {
       if (receiverSockets) {
         for (const socketId of receiverSockets) {
           io.to(socketId).emit('friend_request_responded', {
-            requestId: request.id,
+            requestId: updatedRequest.id,
             status,
             request: updatedRequest
           });

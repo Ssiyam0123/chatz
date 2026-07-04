@@ -12,6 +12,9 @@ import {
   UserX,
   Send,
   History,
+  User,
+  FileText,
+  Shield,
 } from "lucide-react";
 import {
   getReport,
@@ -23,7 +26,7 @@ import {
 import { timeAgo, cn } from "@/lib/utils";
 import { Card, CardHeader, CardTitle } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
-import { StatusBadge, PriorityBadge } from "@/components/ui/Badge";
+import { StatusBadge, PriorityBadge, Badge } from "@/components/ui/Badge";
 
 interface AuditEntry {
   id: string;
@@ -127,14 +130,17 @@ export default function ReportDetailPage() {
 
   if (loading) {
     return (
-      <div className="space-y-6">
-        <div className="shimmer h-8 w-40 rounded" />
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          <div className="lg:col-span-2 space-y-6">
-            <div className="shimmer h-64 rounded-xl" />
-            <div className="shimmer h-64 rounded-xl" />
+      <div className="space-y-5">
+        <div className="shimmer h-8 w-40 rounded-lg" />
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
+          <div className="lg:col-span-2 space-y-5">
+            <div className="shimmer h-56 rounded-xl" />
+            <div className="shimmer h-48 rounded-xl" />
           </div>
-          <div className="shimmer h-64 rounded-xl" />
+          <div className="space-y-5">
+            <div className="shimmer h-52 rounded-xl" />
+            <div className="shimmer h-52 rounded-xl" />
+          </div>
         </div>
       </div>
     );
@@ -142,9 +148,12 @@ export default function ReportDetailPage() {
 
   if (!report) {
     return (
-      <div className="flex flex-col items-center justify-center h-64 gap-2 text-muted-foreground">
-        <Flag size={32} className="opacity-30" />
-        <p>Report not found</p>
+      <div className="flex flex-col items-center justify-center h-64 gap-3 text-muted-foreground">
+        <Flag size={36} className="opacity-20" />
+        <p className="text-sm">Report not found</p>
+        <Button variant="outline" size="sm" onClick={() => router.back()}>
+          <ArrowLeft size={14} /> Go Back
+        </Button>
       </div>
     );
   }
@@ -152,74 +161,82 @@ export default function ReportDetailPage() {
   const auditLog = (report.auditLog as AuditEntry[]) || [];
   const caseNotes = (report.notes as CaseNote[]) || [];
   const target = report.target as Record<string, unknown> | undefined;
-  const status = report.status as string;
+  const status = (report.status as string) || "";
 
   const inputClass =
     "flex-1 px-3 py-2 rounded-lg border border-input bg-card/60 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring transition-all";
 
-  const actionBtnClass = (extra: string) =>
-    cn(
-      "w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium border transition-all active:scale-[0.98] disabled:opacity-50",
-      extra
-    );
+  const statusButtons = [
+    { value: "in_review", label: "In Review", icon: FileText },
+    { value: "dismissed", label: "Dismissed", icon: Shield },
+    { value: "escalated", label: "Escalated", icon: AlertTriangle },
+    { value: "closed", label: "Closed", icon: Shield },
+  ];
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-5">
       <button
         onClick={() => router.back()}
-        className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
+        className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors group"
       >
-        <ArrowLeft size={16} /> Back to reports
+        <ArrowLeft size={15} className="group-hover:-translate-x-0.5 transition-transform" /> Back to reports
       </button>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
         {/* Main Content */}
-        <div className="lg:col-span-2 space-y-6">
+        <div className="lg:col-span-2 space-y-5">
           {/* Report Info */}
-          <Card className="p-6">
-            <div className="flex items-start justify-between mb-5">
-              <div>
-                <h2 className="text-lg font-bold">Report Details</h2>
-                <p className="text-sm text-muted-foreground mt-1">Created {timeAgo(report.createdAt as string)}</p>
+          <Card className="p-0 overflow-hidden">
+            <div className="px-6 py-5 border-b border-border">
+              <div className="flex items-start justify-between">
+                <div>
+                  <h2 className="text-lg font-bold">Report Details</h2>
+                  <p className="text-xs text-muted-foreground mt-1">Created {timeAgo(report.createdAt as string)}</p>
+                </div>
+                <StatusBadge status={status} />
               </div>
-              <StatusBadge status={status} />
             </div>
 
-            <div className="grid grid-cols-2 gap-4 text-sm">
-              <div>
-                <p className="text-muted-foreground text-xs uppercase tracking-wide">Target Type</p>
-                <p className="font-medium capitalize mt-0.5">{report.targetType as string}</p>
-              </div>
-              <div>
-                <p className="text-muted-foreground text-xs uppercase tracking-wide">Target ID</p>
-                <p className="font-medium font-mono text-xs truncate mt-0.5">{report.targetId as string}</p>
-              </div>
-              <div>
-                <p className="text-muted-foreground text-xs uppercase tracking-wide">Priority</p>
-                <div className="mt-0.5"><PriorityBadge priority={report.priority as string} /></div>
-              </div>
-              <div>
-                <p className="text-muted-foreground text-xs uppercase tracking-wide">Assigned To</p>
-                <p className="font-medium mt-0.5">{(report.assignedTo as string) || "Unassigned"}</p>
-              </div>
-              <div className="col-span-2">
-                <p className="text-muted-foreground text-xs uppercase tracking-wide">Reason</p>
-                <p className="font-medium mt-0.5">{report.reason as string}</p>
-              </div>
-              {(report.details as string) && (
-                <div className="col-span-2">
-                  <p className="text-muted-foreground text-xs uppercase tracking-wide">Details</p>
-                  <p className="text-sm mt-1 whitespace-pre-wrap rounded-lg bg-muted/50 p-3">{report.details as string}</p>
+            <div className="p-6">
+              <div className="grid grid-cols-2 gap-x-6 gap-y-4 text-sm">
+                <div>
+                  <p className="text-[11px] text-muted-foreground uppercase tracking-wider font-semibold">Target Type</p>
+                  <p className="font-medium capitalize mt-1">{(report.targetType as string) || "—"}</p>
                 </div>
-              )}
+                <div>
+                  <p className="text-[11px] text-muted-foreground uppercase tracking-wider font-semibold">Target ID</p>
+                  <p className="font-medium font-mono text-xs truncate mt-1">{(report.targetId as string) || "—"}</p>
+                </div>
+                <div>
+                  <p className="text-[11px] text-muted-foreground uppercase tracking-wider font-semibold">Priority</p>
+                  <div className="mt-1"><PriorityBadge priority={(report.priority as string) || ""} /></div>
+                </div>
+                <div>
+                  <p className="text-[11px] text-muted-foreground uppercase tracking-wider font-semibold">Assigned To</p>
+                  <p className="font-medium mt-1">{(report.assignedTo as string) || "Unassigned"}</p>
+                </div>
+                <div className="col-span-2">
+                  <p className="text-[11px] text-muted-foreground uppercase tracking-wider font-semibold">Reason</p>
+                  <p className="font-medium mt-1">{(report.reason as string) || "—"}</p>
+                </div>
+                {(report.details as string) && (
+                  <div className="col-span-2">
+                    <p className="text-[11px] text-muted-foreground uppercase tracking-wider font-semibold">Details</p>
+                    <p className="text-sm mt-1.5 whitespace-pre-wrap rounded-lg bg-muted/30 p-3 border border-border">{report.details as string}</p>
+                  </div>
+                )}
+              </div>
             </div>
           </Card>
 
           {/* Target Content Preview */}
           {target && (
             <Card className="p-6">
-              <h3 className="font-semibold mb-3">Target Content</h3>
-              <div className="text-sm space-y-2 rounded-lg bg-muted/50 p-4">
+              <h3 className="font-semibold text-sm mb-3 flex items-center gap-2">
+                <User size={14} className="text-muted-foreground" />
+                Target Content
+              </h3>
+              <div className="text-sm space-y-2 rounded-lg bg-muted/30 p-4 border border-border">
                 {target.content != null ? <p>{String(target.content)}</p> : null}
                 {target.text != null ? <p>{String(target.text)}</p> : null}
                 {target.name != null ? <p className="font-medium">{String(target.name)}</p> : null}
@@ -230,19 +247,32 @@ export default function ReportDetailPage() {
 
           {/* Case Notes */}
           <Card className="p-6">
-            <h3 className="font-semibold mb-4">Case Notes</h3>
+            <h3 className="font-semibold text-sm mb-4 flex items-center gap-2">
+              <FileText size={14} className="text-muted-foreground" />
+              Case Notes
+              {caseNotes.length > 0 && (
+                <Badge variant="neutral" className="ml-1">{caseNotes.length}</Badge>
+              )}
+            </h3>
 
             {caseNotes.length > 0 && (
-              <div className="space-y-3 mb-4">
+              <div className="space-y-2.5 mb-4">
                 {caseNotes.map((note: CaseNote, i: number) => (
-                  <div key={note.id || i} className="p-3 rounded-lg bg-muted/50 border border-border">
-                    <div className="flex items-center justify-between mb-1">
-                      <span className="text-xs font-medium">{note.admin_name || "Admin"}</span>
-                      <span className="text-xs text-muted-foreground">{timeAgo(note.created_at as string)}</span>
+                  <div key={note.id || i} className="p-3 rounded-lg bg-muted/30 border border-border">
+                    <div className="flex items-center justify-between mb-1.5">
+                      <span className="text-xs font-semibold text-primary">{note.admin_name || "Admin"}</span>
+                      <span className="text-[11px] text-muted-foreground">{timeAgo(note.created_at as string)}</span>
                     </div>
-                    <p className="text-sm">{note.content}</p>
+                    <p className="text-sm leading-relaxed">{note.content}</p>
                   </div>
                 ))}
+              </div>
+            )}
+
+            {caseNotes.length === 0 && (
+              <div className="text-center py-6 text-muted-foreground mb-4">
+                <FileText size={24} className="mx-auto opacity-20 mb-2" />
+                <p className="text-xs">No case notes yet</p>
               </div>
             )}
 
@@ -255,8 +285,8 @@ export default function ReportDetailPage() {
                 className={inputClass}
                 onKeyDown={(e) => e.key === "Enter" && handleAddNote()}
               />
-              <Button onClick={handleAddNote} disabled={!noteInput.trim() || noteLoading}>
-                <Send size={14} /> Send
+              <Button onClick={handleAddNote} disabled={!noteInput.trim() || noteLoading} size="md">
+                <Send size={13} /> Send
               </Button>
             </div>
           </Card>
@@ -265,19 +295,23 @@ export default function ReportDetailPage() {
           {auditLog.length > 0 && (
             <Card className="p-6">
               <CardHeader className="px-0 pt-0">
-                <History size={16} className="text-muted-foreground" />
-                <CardTitle className="text-base">Audit Trail</CardTitle>
+                <History size={14} className="text-muted-foreground" />
+                <CardTitle>Audit Trail</CardTitle>
               </CardHeader>
-              <div className="relative space-y-4 pl-2">
+              <div className="relative space-y-0 pl-4">
+                {/* Timeline line */}
+                <div className="absolute left-[5px] top-2 bottom-2 w-px bg-border" />
                 {auditLog.map((entry: AuditEntry, i: number) => (
-                  <div key={entry.id || i} className="relative flex items-start gap-3 text-sm pl-4">
-                    <span className="absolute left-0 top-1.5 h-2.5 w-2.5 rounded-full bg-primary ring-4 ring-primary/15" />
-                    <div className="flex-1">
-                      <span className="font-medium capitalize">{entry.action.replace(/_/g, " ")}</span>
-                      <span className="text-muted-foreground"> by {entry.admin_name || "System"}</span>
+                  <div key={entry.id || i} className="relative flex items-start gap-3 text-sm py-3">
+                    <span className="absolute left-[-11px] top-4 h-2.5 w-2.5 rounded-full bg-primary ring-3 ring-primary/10" />
+                    <div className="flex-1 pl-2">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="font-medium capitalize">{(entry.action || "").replace(/_/g, " ")}</span>
+                        <span className="text-muted-foreground text-xs">by {entry.admin_name || "System"}</span>
+                        <span className="text-[11px] text-muted-foreground ml-auto shrink-0">{timeAgo(entry.created_at)}</span>
+                      </div>
                       {entry.reason && <p className="text-muted-foreground text-xs mt-0.5">{entry.reason}</p>}
                     </div>
-                    <span className="text-xs text-muted-foreground shrink-0">{timeAgo(entry.created_at)}</span>
                   </div>
                 ))}
               </div>
@@ -289,62 +323,66 @@ export default function ReportDetailPage() {
         <div className="space-y-4">
           {/* Status Transitions */}
           <Card className="p-5">
-            <h3 className="font-semibold mb-3">Status</h3>
+            <h3 className="font-semibold text-sm mb-3">Status</h3>
             <div className="space-y-2">
-              {["in_review", "dismissed", "escalated", "closed"].map((s) => (
-                <button
-                  key={s}
-                  onClick={() => handleStatusChange(s)}
-                  disabled={actionLoading === s || status === s}
-                  className={cn(
-                    "w-full px-3 py-2 rounded-lg text-sm font-medium border transition-all active:scale-[0.98] disabled:opacity-50 capitalize",
-                    status === s
-                      ? "bg-primary/12 border-primary/30 text-primary"
-                      : "border-border hover:bg-accent"
-                  )}
-                >
-                  Mark as {s.replace(/_/g, " ")}
-                </button>
-              ))}
+              {statusButtons.map((s) => {
+                const Icon = s.icon;
+                return (
+                  <button
+                    key={s.value}
+                    onClick={() => handleStatusChange(s.value)}
+                    disabled={actionLoading === s.value || status === s.value}
+                    className={cn(
+                      "w-full flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-sm font-medium border transition-all active:scale-[0.98] disabled:opacity-50",
+                      status === s.value
+                        ? "bg-primary/10 border-primary/30 text-primary"
+                        : "border-border hover:bg-accent hover:border-border-strong"
+                    )}
+                  >
+                    <Icon size={14} />
+                    Mark as {s.label}
+                  </button>
+                );
+              })}
             </div>
           </Card>
 
           {/* Moderation Actions */}
           <Card className="p-5">
-            <h3 className="font-semibold mb-3">Actions</h3>
+            <h3 className="font-semibold text-sm mb-3">Actions</h3>
             <div className="space-y-2">
               <button
                 onClick={() => handleModerate("delete_content")}
                 disabled={!!actionLoading}
-                className={actionBtnClass("border-destructive/25 text-destructive hover:bg-destructive/10")}
+                className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-sm font-medium border border-destructive/20 text-destructive hover:bg-destructive/8 transition-all active:scale-[0.98] disabled:opacity-50"
               >
                 <Trash2 size={14} /> Delete Content
               </button>
               <button
                 onClick={() => handleModerate("restore_content")}
                 disabled={!!actionLoading}
-                className={actionBtnClass("border-border hover:bg-accent")}
+                className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-sm font-medium border border-border hover:bg-accent hover:border-border-strong transition-all active:scale-[0.98] disabled:opacity-50"
               >
                 <Undo2 size={14} /> Restore Content
               </button>
               <button
                 onClick={() => handleModerate("warn_user")}
                 disabled={!!actionLoading}
-                className={actionBtnClass("border-warning/30 text-warning hover:bg-warning/10")}
+                className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-sm font-medium border border-warning/25 text-warning hover:bg-warning/8 transition-all active:scale-[0.98] disabled:opacity-50"
               >
                 <AlertTriangle size={14} /> Warn User
               </button>
               <button
                 onClick={() => handleModerate("suspend_user", { suspendDays: 3 })}
                 disabled={!!actionLoading}
-                className={actionBtnClass("border-warning/40 text-warning hover:bg-warning/10")}
+                className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-sm font-medium border border-warning/30 text-warning hover:bg-warning/8 transition-all active:scale-[0.98] disabled:opacity-50"
               >
                 <UserX size={14} /> Suspend (3d)
               </button>
               <button
                 onClick={() => handleModerate("ban_user")}
                 disabled={!!actionLoading}
-                className={actionBtnClass("border-destructive/25 text-destructive hover:bg-destructive/10")}
+                className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-sm font-medium border border-destructive/20 text-destructive hover:bg-destructive/8 transition-all active:scale-[0.98] disabled:opacity-50"
               >
                 <Ban size={14} /> Ban User
               </button>
@@ -353,11 +391,11 @@ export default function ReportDetailPage() {
 
           {/* Assign */}
           <Card className="p-5">
-            <h3 className="font-semibold mb-3">Assignment</h3>
+            <h3 className="font-semibold text-sm mb-3">Assignment</h3>
             <input
               type="text"
               placeholder="Assign to admin ID…"
-              className={inputClass}
+              className={inputClass + " w-full"}
               onKeyDown={async (e) => {
                 if (e.key === "Enter" && (e.target as HTMLInputElement).value.trim()) {
                   try {
@@ -370,7 +408,7 @@ export default function ReportDetailPage() {
                 }
               }}
             />
-            <p className="text-xs text-muted-foreground mt-1.5">Enter admin ID and press Enter</p>
+            <p className="text-[11px] text-muted-foreground mt-1.5">Enter admin ID and press Enter</p>
           </Card>
         </div>
       </div>

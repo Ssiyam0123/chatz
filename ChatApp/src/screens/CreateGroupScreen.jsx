@@ -25,19 +25,11 @@ const [groupName, setGroupName] = useState('');
 
   const fetchUsers = async () => {
     try {
-      const [friendsRes, allUsersRes] = await Promise.all([
-        getFriends(),
-        getAllUsers(),
-      ]);
+      const friendsRes = await getFriends();
       const friendsList = (friendsRes.data.data || []).map(u => ({ ...u, isFriend: true }));
-      const allUsersList = allUsersRes.data.data || [];
-
-      const friendIds = new Set(friendsList.map(f => f.id));
-      const nonFriendsList = allUsersList.filter(u => !friendIds.has(u.id));
-
-      setUsers([...friendsList, ...nonFriendsList]);
+      setUsers(friendsList);
     } catch (err) {
-      console.error('Failed to fetch users:', err);
+      console.error('Failed to fetch friends for group creation:', err);
     } finally {
       setLoading(false);
     }

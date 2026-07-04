@@ -43,7 +43,7 @@ export const initSocket = (server) => {
   });
 
   io.on('connection', (socket) => {
-    const userId = socket.user.id;
+    const userId = String(socket.user.id);
 
     if (!userSockets.has(userId)) {
       userSockets.set(userId, new Set());
@@ -58,6 +58,13 @@ export const initSocket = (server) => {
     socket.on('send_message', async ({ receiverId, text, image, ciphertext, nonce, isEncrypted, clientId }) => {
       console.log(`📨 DM from ${userId} to ${receiverId} clientId=${clientId} encrypted=${!!isEncrypted}`);
       try {
+        if (!isEncrypted || !ciphertext || !nonce) {
+          return socket.emit('message_error', {
+            message: 'Security Guard: E2EE is mandatory. Plaintext messages are rejected.',
+            clientId,
+          });
+        }
+
         // Friend request system guard - check UserFriend link table
         const { rowCount: isFriend } = await pool.query(
           `SELECT 1 FROM user_friends 
@@ -76,7 +83,7 @@ export const initSocket = (server) => {
           `INSERT INTO messages (sender_id, receiver_id, text, image, ciphertext, nonce, is_encrypted, created_at, updated_at) 
            VALUES ($1, $2, $3, $4, $5, $6, $7, NOW(), NOW()) 
            RETURNING id, created_at as "createdAt"`,
-          [userId, receiverId, text || '', image || null, ciphertext || null, nonce || null, !!isEncrypted]
+          [userId, receiverId, '🔒 [Encrypted Message]', null, ciphertext, nonce, true]
         );
 
         const newMessageId = messages[0].id;
@@ -107,12 +114,12 @@ export const initSocket = (server) => {
 
         const conversationForReceiver = {
           _id: userId,
-          lastMessage: isEncrypted ? '🔒 Encrypted Message' : image ? '📷 Image' : text,
+          lastMessage: '🔒 Encrypted Message',
           lastMessageTime: newMessageCreatedAt,
-          lastMessageImage: image || null,
-          lastMessageCiphertext: ciphertext || null,
-          lastMessageNonce: nonce || null,
-          lastMessageIsEncrypted: !!isEncrypted,
+          lastMessageImage: null,
+          lastMessageCiphertext: ciphertext,
+          lastMessageNonce: nonce,
+          lastMessageIsEncrypted: true,
           userDetails: {
             _id: userId,
             name: senderUserDetails.name,
@@ -122,12 +129,12 @@ export const initSocket = (server) => {
 
         const conversationForSender = {
           _id: receiverId,
-          lastMessage: isEncrypted ? '🔒 Encrypted Message' : image ? '📷 Image' : text,
+          lastMessage: '🔒 Encrypted Message',
           lastMessageTime: newMessageCreatedAt,
-          lastMessageImage: image || null,
-          lastMessageCiphertext: ciphertext || null,
-          lastMessageNonce: nonce || null,
-          lastMessageIsEncrypted: !!isEncrypted,
+          lastMessageImage: null,
+          lastMessageCiphertext: ciphertext,
+          lastMessageNonce: nonce,
+          lastMessageIsEncrypted: true,
           userDetails: {
             _id: receiverId,
             name: receiverUserDetails?.name,
@@ -135,7 +142,7 @@ export const initSocket = (server) => {
           },
         };
 
-        const receiverSockets = userSockets.get(receiverId);
+        const receiverSockets = userSockets.get(String(receiverId));
         if (receiverSockets && receiverSockets.size > 0) {
           for (const socketId of receiverSockets) {
             io.to(socketId).emit('receive_message', serialized);
@@ -152,7 +159,7 @@ export const initSocket = (server) => {
     });
 
     socket.on('typing', ({ receiverId, isTyping }) => {
-      const receiverSockets = userSockets.get(receiverId);
+      const receiverSockets = userSockets.get(String(receiverId));
       if (receiverSockets) {
         for (const socketId of receiverSockets) {
           io.to(socketId).emit('user_typing', { userId, isTyping });
@@ -200,6 +207,8 @@ export const initSocket = (server) => {
         );
 
         const populatedMessage = populatedMessages[0];
+        // Ensure group field is populated so client knows it belongs to a group
+        populatedMessage.group = groupId;
         const serialized = serialize(populatedMessage);
 
         const { rows: groups } = await pool.query('SELECT name, avatar FROM groups WHERE id = $1', [groupId]);
@@ -216,9 +225,10 @@ export const initSocket = (server) => {
           isGroup: true,
         };
 
-        // Broadcast to all online group members
+        // Broadcast to all online group members except the sender
         for (const member of groupMembers) {
-          const memberSockets = userSockets.get(member.id);
+          if (String(member.id) === userId) continue; // Skip sender
+          const memberSockets = userSockets.get(String(member.id));
           if (memberSockets) {
             for (const socketId of memberSockets) {
               io.to(socketId).emit('receive_group_message', serialized);
@@ -239,8 +249,8 @@ export const initSocket = (server) => {
         const { rows: groupMembers } = await pool.query('SELECT user_id as "id" FROM group_members WHERE group_id = $1', [groupId]);
         
         for (const member of groupMembers) {
-          if (member.id !== userId) {
-            const memberSockets = userSockets.get(member.id);
+          if (String(member.id) !== userId) {
+            const memberSockets = userSockets.get(String(member.id));
             if (memberSockets) {
               for (const socketId of memberSockets) {
                 io.to(socketId).emit('user_typing_group', { groupId, userId, isTyping });
@@ -268,6 +278,8 @@ export const initSocket = (server) => {
       );
     });
   });
+
+  return io;
 };
 
 export { userSockets };

@@ -1,18 +1,17 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
+import Link from "next/link";
 import {
   ShieldCheck,
   Clock,
-  CheckCircle,
   AlertTriangle,
-  RefreshCw,
   BarChart3,
+  FileText,
+  ChevronRight,
 } from "lucide-react";
 import {
   BarChart,
-  LineChart,
-  Line,
   Bar,
   XAxis,
   YAxis,
@@ -21,7 +20,15 @@ import {
   ResponsiveContainer,
 } from "recharts";
 import { getModerationSLA, getReportStats } from "@/lib/api";
-import { formatNumber, cn } from "@/lib/utils";
+import { formatNumber } from "@/lib/utils";
+import { Card, CardHeader, CardTitle, CardBody } from "@/components/ui/Card";
+import { PageHeader } from "@/components/ui/PageHeader";
+import {
+  chartColors,
+  chartAxisProps,
+  chartGridProps,
+  chartTooltipStyle,
+} from "@/components/ui/charts";
 
 export default function ModerationPage() {
   const [slaData, setSlaData] = useState<
@@ -74,91 +81,122 @@ export default function ModerationPage() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
+      <div className="space-y-5">
+        <PageHeader title="Moderation" subtitle="Performance & SLA metrics" />
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
+          {Array.from({ length: 5 }).map((_, i) => (
+            <div key={i} className="shimmer h-28 rounded-xl border border-border" />
+          ))}
+        </div>
+        <div className="shimmer h-72 rounded-xl border border-border" />
       </div>
     );
   }
 
   const statusCards = [
-    { label: "Open", value: reportStats.open, color: "text-yellow-600 bg-yellow-50" },
-    { label: "In Review", value: reportStats.in_review, color: "text-blue-600 bg-blue-50" },
-    { label: "Escalated", value: reportStats.escalated, color: "text-red-600 bg-red-50" },
-    { label: "Closed", value: reportStats.closed, color: "text-purple-600 bg-purple-50" },
-  ];
+    { label: "Open", value: reportStats.open, accent: "warning", icon: Clock },
+    { label: "In Review", value: reportStats.in_review, accent: "info", icon: FileText },
+    { label: "Escalated", value: reportStats.escalated, accent: "danger", icon: AlertTriangle },
+    { label: "Closed", value: reportStats.closed, accent: "primary", icon: ShieldCheck },
+    { label: "Total Reports", value: reportStats.total, accent: "neutral", icon: BarChart3 },
+  ] as const;
+
+  const accentText: Record<string, string> = {
+    warning: "text-warning",
+    info: "text-info",
+    danger: "text-destructive",
+    primary: "text-primary",
+    neutral: "text-foreground",
+  };
+  const accentBg: Record<string, string> = {
+    warning: "bg-warning/12",
+    info: "bg-info/12",
+    danger: "bg-destructive/12",
+    primary: "bg-primary/12",
+    neutral: "bg-accent",
+  };
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold">Moderation</h1>
-        <p className="text-muted-foreground text-sm mt-1">
-          Moderation performance and SLA metrics
-        </p>
-      </div>
+    <div className="space-y-5">
+      <PageHeader title="Moderation" subtitle="Moderation performance and SLA metrics" />
 
       {/* Status Overview */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        {statusCards.map((card) => (
-          <div key={card.label} className="bg-white dark:bg-gray-900 rounded-xl border border-border p-5">
-            <p className="text-sm text-muted-foreground">{card.label}</p>
-            <p className={cn("text-2xl font-bold mt-1", card.color.split(" ")[0])}>
-              {formatNumber(card.value)}
-            </p>
-          </div>
-        ))}
-        <div className="bg-white dark:bg-gray-900 rounded-xl border border-border p-5">
-          <p className="text-sm text-muted-foreground">Total Reports</p>
-          <p className="text-2xl font-bold mt-1">{formatNumber(reportStats.total)}</p>
-        </div>
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4 stagger-children">
+        {statusCards.map((card) => {
+          const Icon = card.icon;
+          return (
+            <Card key={card.label} className="p-5">
+              <div className="flex items-center justify-between">
+                <span className={`grid place-items-center h-9 w-9 rounded-lg ${accentBg[card.accent]} ${accentText[card.accent]}`}>
+                  <Icon size={16} />
+                </span>
+              </div>
+              <p className={`text-2xl font-bold mt-3 ${accentText[card.accent]}`}>
+                {formatNumber(card.value)}
+              </p>
+              <p className="text-xs text-muted-foreground mt-0.5">{card.label}</p>
+            </Card>
+          );
+        })}
       </div>
 
       {/* SLA Chart */}
-      <div className="bg-white dark:bg-gray-900 rounded-xl border border-border p-6">
-        <div className="flex items-center gap-2 mb-4">
-          <Clock size={18} className="text-primary" />
-          <h2 className="font-semibold">Avg Resolution Time by Status (hours)</h2>
-        </div>
-        <div className="h-72">
-          <ResponsiveContainer width="100%" height="100%">
-            <BarChart
-              data={slaData.length > 0 ? slaData : [{ status: "No data", avg_hours: 0, count: 0 }]}
-            >
-              <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-              <XAxis dataKey="status" tick={{ fontSize: 12 }} />
-              <YAxis tick={{ fontSize: 12 }} />
-              <Tooltip />
-              <Line type="monotone" dataKey="avg_hours" stroke="#B98298" strokeWidth={2} />
-            </BarChart>
-          </ResponsiveContainer>
-        </div>
-      </div>
+      <Card>
+        <CardHeader>
+          <Clock size={16} className="text-primary" />
+          <CardTitle>Avg Resolution Time by Status (hours)</CardTitle>
+        </CardHeader>
+        <CardBody>
+          <div className="h-64">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart
+                data={slaData.length > 0 ? slaData : [{ status: "No data", avg_hours: 0, count: 0 }]}
+              >
+                <defs>
+                  <linearGradient id="barSla" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor={chartColors.primary} stopOpacity={0.9} />
+                    <stop offset="100%" stopColor={chartColors.primaryStrong} stopOpacity={0.4} />
+                  </linearGradient>
+                </defs>
+                <CartesianGrid {...chartGridProps} />
+                <XAxis dataKey="status" {...chartAxisProps} />
+                <YAxis {...chartAxisProps} width={35} />
+                <Tooltip cursor={{ fill: chartColors.grid, opacity: 0.15 }} contentStyle={chartTooltipStyle} />
+                <Bar dataKey="avg_hours" fill="url(#barSla)" radius={[4, 4, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        </CardBody>
+      </Card>
 
       {/* Quick Links */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <a
+        <Link
           href="/reports?status=open"
-          className="flex items-center gap-4 p-5 bg-white dark:bg-gray-900 rounded-xl border border-border hover:shadow-md transition-shadow"
+          className="group flex items-center gap-4 p-5 glass rounded-xl border border-border shadow-soft lift"
         >
-          <div className="p-3 rounded-lg bg-yellow-50 text-yellow-600">
-            <AlertTriangle size={24} />
+          <span className="grid place-items-center h-11 w-11 rounded-xl bg-warning/12 text-warning shrink-0 group-hover:scale-110 transition-transform">
+            <AlertTriangle size={20} />
+          </span>
+          <div className="flex-1 min-w-0">
+            <p className="font-semibold text-sm">Open Reports Queue</p>
+            <p className="text-xs text-muted-foreground mt-0.5">{formatNumber(reportStats.open)} reports awaiting review</p>
           </div>
-          <div>
-            <p className="font-semibold">Open Reports Queue</p>
-            <p className="text-sm text-muted-foreground">{reportStats.open} reports awaiting review</p>
-          </div>
-        </a>
-        <a
+          <ChevronRight size={16} className="text-muted-foreground group-hover:text-foreground transition-colors shrink-0" />
+        </Link>
+        <Link
           href="/reports?status=escalated"
-          className="flex items-center gap-4 p-5 bg-white dark:bg-gray-900 rounded-xl border border-border hover:shadow-md transition-shadow"
+          className="group flex items-center gap-4 p-5 glass rounded-xl border border-border shadow-soft lift"
         >
-          <div className="p-3 rounded-lg bg-red-50 text-red-600">
-            <ShieldCheck size={24} />
+          <span className="grid place-items-center h-11 w-11 rounded-xl bg-destructive/12 text-destructive shrink-0 group-hover:scale-110 transition-transform">
+            <ShieldCheck size={20} />
+          </span>
+          <div className="flex-1 min-w-0">
+            <p className="font-semibold text-sm">Escalated Queue</p>
+            <p className="text-xs text-muted-foreground mt-0.5">{formatNumber(reportStats.escalated)} escalated reports</p>
           </div>
-          <div>
-            <p className="font-semibold">Escalated Queue</p>
-            <p className="text-sm text-muted-foreground">{reportStats.escalated} escalated reports</p>
-          </div>
-        </a>
+          <ChevronRight size={16} className="text-muted-foreground group-hover:text-foreground transition-colors shrink-0" />
+        </Link>
       </div>
     </div>
   );
